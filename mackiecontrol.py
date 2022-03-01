@@ -66,6 +66,11 @@ class MackieButton(MackieCommand):
 class MackiePrevNext():
 	prevKey: int
 	nextKey: int
+	#
+	#	Extending this class with general names for list of items, as well as names if applicable (tracks)
+	#	Since mackie has 8 tracks (or channels) per bank, we need a way to get and set tracks reliably based on position
+	#	Unsure if this all goes here, or not..8 tracks is track specific not bank, so maybe inherited class?
+	#
 
 	btnPrev: MackieButton = None# = MackieButton(46)
 	btnNext: MackieButton = None# = MackieButton(47)
@@ -96,7 +101,7 @@ class MackieBank:
 
 @dataclass
 class MackieTrack:
-	TrackList = "Some list of 8 tracks"
+	TrackList = "Some list of 8 tracks, or just one track? Extend mackiecommmand for selection?"
 	##
 	#	Selecting a track out of the 8 deselects the others. We only need to send deltas, so just sending the previous selected to reset/off and new track active is enough
 	#	If track isn't in current bank, all tracks will be OFF/inactive/reset
@@ -105,6 +110,11 @@ class MackieTrack:
 
 @dataclass
 class MackieFaderBank:
+	#
+	#	Bank and Track objects instead? Which also keep lists of tracks and banks, currently selected and whatnot
+	#	Might be best to extend MackiePrevNext for to avoid code duplication, general names for lists etc..
+	#	
+	#
 	Banks: MackiePrevNext = MackiePrevNext(46,47)
 	Tracks: MackiePrevNext = MackiePrevNext(48,49)
 
