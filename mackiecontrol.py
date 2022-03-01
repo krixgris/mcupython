@@ -1,7 +1,7 @@
 #mackieconfig.py
 #
 #
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum, auto, unique
 from abc import ABC, abstractclassmethod
 
@@ -100,13 +100,14 @@ class MackieBank:
 	
 
 @dataclass
-class MackieTrack:
-	TrackList = "Some list of 8 tracks, or just one track? Extend mackiecommmand for selection?"
+class MackieTrack(MackieButton):
+	key:int
+	Name:str = ""
 	##
 	#	Selecting a track out of the 8 deselects the others. We only need to send deltas, so just sending the previous selected to reset/off and new track active is enough
 	#	If track isn't in current bank, all tracks will be OFF/inactive/reset
 	##
-	change: MackiePrevNext = MackiePrevNext(48,49)
+	#change: MackiePrevNext = MackiePrevNext(48,49)
 
 @dataclass
 class MackieFaderBank:
@@ -121,8 +122,8 @@ class MackieFaderBank:
 @dataclass
 class MackieControl:
 	FaderBank = MackieFaderBank()
-	Bank = MackieBank() ## Allows to view list of banks, as well as navigating prev/next
-	Tracks = MackieTrack() ## Allows to view list of tracks, as well as navigating prev/next, Tracks live in banks. 8 tracks per bank
+	#Bank = MackieBank() ## Allows to view list of banks, as well as navigating prev/next
+	#Tracks = MackieTrack() ## Allows to view list of tracks, as well as navigating prev/next, Tracks live in banks. 8 tracks per bank
 							## Actual MCU Controller only ever knows of 'current track list'..no concept of keeping track of banks exists
 	btnF1 = MackieButton(54)
 	btnF2 = MackieButton(55)
@@ -139,5 +140,13 @@ mcu.FaderBank.Tracks.Next()
 # mcu.Bank.change.Prev()
 # mcu.Tracks.change.Next()
 # mcu.Tracks.change.Prev()
+
+#print(asdict(mcu.Bank))
+
+tracks = [MackieTrack(x+31) for x in range(8)]
+for t in tracks:
+	print(asdict(t))
+
+
 
 mcu.btnF3.activate()
