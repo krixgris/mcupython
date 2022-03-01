@@ -5,10 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, auto, unique
 from abc import ABC, abstractclassmethod
 
-
-import json
 import mido
-import string
 
 
 #
@@ -43,10 +40,7 @@ class MackieCommand(ABC):
 	key: int
 	mcType: MCType = None
 	state: bool = False
-	#midiType: MidiType = MidiType.note_on
-
-	#on: mido.Message = mido.Message('note_on')
-	#off: mido.Message = mido.Message('note_off')
+	
 	@abstractclassmethod
 	def activate(self):
 		"""What happens when button is pushed/command is sent?"""
@@ -57,25 +51,7 @@ class MackieCommand(ABC):
 		"""Do we need to reset state of button? What should be done? Example play button first press starts and latches, next push resets to stopped."""
 		pass
 
-	# def __post_init__(self):
-	# 	self.on = mido.Message(type='note_on', note=self.key, channel=0, velocity=127)
-	# 	self.off = mido.Message(type='note_off', note=self.key, channel=0, velocity=0)
 
-
-# @dataclass
-# class MackieButton:
-# 	Name: str
-# 	MidiCommand: MackieNote
-# 	state: bool = False
-
-# 	def __post_init__(self):
-# 		pass
-# 	def __repr__(self) -> str:
-# 		return str(self.MidiCommand)
-
-# 	# def Toggle(self)->mido.Message:
-# 	# 	self.state = not self.state
-# 	# 	return self.MidiCommand
 
 @dataclass
 class MackieButton(MackieCommand):
@@ -103,6 +79,8 @@ class MackiePrevNext():
 	def Next(self):
 		self.btnNext.activate()
 
+
+
 @dataclass
 class MackieBank:
 	##
@@ -125,9 +103,14 @@ class MackieTrack:
 	##
 	change: MackiePrevNext = MackiePrevNext(48,49)
 
+@dataclass
+class MackieFaderBank:
+	Banks: MackiePrevNext = MackiePrevNext(46,47)
+	Tracks: MackiePrevNext = MackiePrevNext(48,49)
 
 @dataclass
 class MackieControl:
+	FaderBank = MackieFaderBank()
 	Bank = MackieBank() ## Allows to view list of banks, as well as navigating prev/next
 	Tracks = MackieTrack() ## Allows to view list of tracks, as well as navigating prev/next, Tracks live in banks. 8 tracks per bank
 							## Actual MCU Controller only ever knows of 'current track list'..no concept of keeping track of banks exists
@@ -137,61 +120,14 @@ class MackieControl:
 	btnF4 = MackieButton(57)
 
 mcu = MackieControl()
-mcu.Bank.change.Next()
-mcu.Bank.change.Prev()
-mcu.Tracks.change.Next()
-mcu.Tracks.change.Prev()
+mcu.FaderBank.Banks.Next()
+mcu.FaderBank.Tracks.Next()
+
+#mcu.FaderBank.TrackNext() ? NextTrack() ? Or objects inside faderbank for banks/tracks..
+
+# mcu.Bank.change.Next()
+# mcu.Bank.change.Prev()
+# mcu.Tracks.change.Next()
+# mcu.Tracks.change.Prev()
 
 mcu.btnF3.activate()
-
-
-
-
-testMsg = mido.Message('sysex', data=[80, 82, 93])
-
-
-
-# print(bytes.fromhex(testMsg.hex()))
-# for h in testMsg.hex():
-# 	print(h)
-#test = [bytes.fromhex(h).decode('utf-8')  for h in testMsg.hex().split(" ") if h not in ["F0","F7"] and (h.isalnum())]
-test = [bytes.fromhex(h).decode()  for h in testMsg.hex().split(" ") if h not in ["F0","F7"] and (h.isalnum())]
-strTest:str = ""
-
-# print(type(test))
-
-
-def listToStr(l:list)->str:
-	# print("infunc")
-	# print(l)
-	sFromList = ""
-	for s in l:
-		# print (s)
-		sFromList += str(s)
-	# print(sFromList)
-	return s
-strTest = listToStr(test)
-
-# print(test)
-# print("this is str")
-# print(strTest)
-# strTest2: str = ""
-# strTest2 = strTest2.join(test)
-# print (strTest2)
-# print(bytes.fromhex(testMsg.hex()).decode())
-
-
-# for s in str(msg.hex())[21:].split(' '):
-# 					if( s.isalnum() or s.isspace):
-# 						if s != 'F0' and s != 'F7':
-# 							# sList.append(s.decode('hex'))
-# 							#print s.decode('')
-# 							sList.append(bytes.fromhex(s).decode('utf-8'))
-
-# 				newString = "decoded hex:"
-# 				decodedString = ""
-
-# print(mcu.BankUp.MidiOn)
-# print(mcu.BankUp.MidiOff)
-# print(mcu.BankDown.off)
-# print(mcu.BankDown.on)
