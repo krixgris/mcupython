@@ -71,7 +71,7 @@ class MackieButton(MackieCommand):
 		return str(self)
 
 	def __str__(self):
-		return (("note_off" if self.active else "note_on") + " note=" + str(self.key) + " channel=0 velocity=127")
+		return (("note_on" if self.active else "note_off") + " note=" + str(self.key) + " channel=0 velocity=127")
 
 @dataclass
 class MackiePrevNext():
@@ -115,13 +115,26 @@ class MackieBank:
 class MackieTrack(MackieButton):
 	# is this just redundant?
 	key:int
+	#state:bool = False
 	#mcType:MCType = MCType.note
+	midiMsg = None#:mido.Message = mido.Message(type='note_off') #must init to a type
 	Name:str = ""
 	##
 	#	Selecting a track out of the 8 deselects the others. We only need to send deltas, so just sending the previous selected to reset/off and new track active is enough
 	#	If track isn't in current bank, all tracks will be OFF/inactive/reset
 	##
 	#change: MackiePrevNext = MackiePrevNext(48,49)
+
+	@property
+	def MidiMsg(self):
+		return self.midiMsg
+	@MidiMsg.setter
+	def MidiMsg(self, msg:mido.Message):
+		self.state = True if msg.type == 'note_off' else False
+		self.midiMsg = msg.copy()
+	
+	def __post_init__(self):
+		self.midiMsg = mido.Message.from_str(str(self))
 
 @dataclass
 class MackieFaderBank:
@@ -174,9 +187,9 @@ mcu.btnF3.activate()
 print("Start")
 print(tracks[0].activate())
 
-print(MackieButton(25))
+#print(MackieButton(25))
 msg1 = mido.Message.from_str(str(tracks[0]))
-msg2 = mido.Message(type="note_off",channel=0,velocity=127,note=26, time=0)
+msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=26, time=0)
 
 TrackMessages = [mido.Message.from_str(str(t)) for t in tracks]
 
@@ -189,26 +202,32 @@ print(msg2)
 #
 # smart compare possibly... or if *not* exist, query the change required?
 
-if(msg2 in TrackMessages):
+if(msg2 in [t.midiMsg for t in tracks]):
 	print("Equal on note " + str(msg2.note))
 else:
 	print("Not Equal: " + str(msg2))
-	print(TrackMessages[msg2.note-24])
+	print(tracks[msg2.note-24].midiMsg)
 	#
-	TrackMessages[msg2.note-24] = msg2.copy()
+	print("Updating from: " + str(msg2))
+	tracks[msg2.note-24].MidiMsg = msg2.copy()
+
+	print("Updated: " + str(tracks[msg2.note-24].midiMsg))
+
 	#
 	#	Here we need to sync this back to the actual TrackMessages
 	#
 	#	Maybe smartest way is to analyze the changed message, and update what is changed
 	#	Do we need to maintain both trackmessages as well as tracks here? Seems redundant
 	#
-	print(TrackMessages[msg2.note-24])
-	print(tracks)
+	#	Do we care?
+	#
+	print(tracks[msg2.note-24])
+	#print(tracks)
 
 #print(TrackMessages)
-print("Test outputs")
-print(tracks[0])
-print(tracks[0].activate())
-print(tracks[0].reset())
-print(str(tracks[0]))
+#print("Test outputs")
+# print(tracks[0])
+# print(tracks[0].activate())
+# print(tracks[0].reset())
+# print(str(tracks[0]))
 print("End")
