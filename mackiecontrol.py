@@ -1,4 +1,4 @@
-#mackieconfig.py
+#mackiecontrol.py
 #
 #
 from dataclasses import asdict, dataclass
@@ -58,9 +58,13 @@ class MackieButton(MackieCommand):
 
 	mcType:MCType = MCType.note
 	def activate(self):
-		print("Activate" + str(self.key))
+		return ("note_on note=" + str(self.key) + " channel=0 velocity=127")
 	def reset(self):
 		pass
+	def __repr__(self):
+		return ("note_on note=" + str(self.key) + " channel=0 velocity=127")
+	def __str__(self):
+		return ("note_on note=" + str(self.key) + " channel=0 velocity=127")
 
 @dataclass
 class MackiePrevNext():
@@ -88,6 +92,7 @@ class MackiePrevNext():
 
 @dataclass
 class MackieBank:
+	# is this just redundant?
 	##
 	#	Important thing here is to check if currently selected bank has a selected track, i.e. "is this the right bank?"
 	#	Ideally, we will want to ensure that we follow the selected track, so some kind of logic to also determine the smart way to find it is needed
@@ -101,7 +106,9 @@ class MackieBank:
 
 @dataclass
 class MackieTrack(MackieButton):
+	# is this just redundant?
 	key:int
+	#mcType:MCType = MCType.note
 	Name:str = ""
 	##
 	#	Selecting a track out of the 8 deselects the others. We only need to send deltas, so just sending the previous selected to reset/off and new track active is enough
@@ -122,6 +129,12 @@ class MackieFaderBank:
 @dataclass
 class MackieControl:
 	FaderBank = MackieFaderBank()
+	#
+	Bank:None = None 	# Separate object? Holds what? List of track names? Keeps track of magic autobank?
+						# 
+	#
+	#
+	#
 	#Bank = MackieBank() ## Allows to view list of banks, as well as navigating prev/next
 	#Tracks = MackieTrack() ## Allows to view list of tracks, as well as navigating prev/next, Tracks live in banks. 8 tracks per bank
 							## Actual MCU Controller only ever knows of 'current track list'..no concept of keeping track of banks exists
@@ -143,10 +156,39 @@ mcu.FaderBank.Tracks.Next()
 
 #print(asdict(mcu.Bank))
 
-tracks = [MackieTrack(x+31) for x in range(8)]
+tracks = [MackieTrack(x+24) for x in range(8)]
 for t in tracks:
 	print(asdict(t))
 
 
 
 mcu.btnF3.activate()
+
+print("Start")
+print(tracks[0].activate())
+
+print(MackieButton(25))
+msg1 = mido.Message.from_str(str(tracks[0]))
+msg2 = mido.Message(type="note_off",channel=0,velocity=127,note=26, time=0)
+
+TrackMessages = [mido.Message.from_str(str(t)) for t in tracks]
+
+print(msg1)
+print(msg2)
+# this finds msg in trackmessages-list.. keep in mind note on only, which we might want?
+# or figure out if we need a similar, but note off? note off handled... time is a potential issue, but can be forced to time 0
+#
+# this also requires us to ensure that we only compare keys in the index, so no index out of bounds.. i.e. only check for notes within 24-31
+#
+# smart compare possibly... or if *not* exist, query the change required?
+
+if(msg2 in TrackMessages):
+	print("Equal on note " + str(msg2.note))
+else:
+	print("Not Equal" + str(msg2))
+	print(tracks[msg2.note-24])
+	tracks[msg2.note-24] = msg2.copy()
+	print(tracks[msg2.note-24])
+#print(TrackMessages)
+
+print("End")
