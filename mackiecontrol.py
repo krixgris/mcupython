@@ -58,8 +58,15 @@ class MackieButton(MackieCommand):
 	active:bool = False
 	mcType:MCType = MCType.note
 
+	def MidiType(self)->tuple():
+		return (("note_on",127) if self.active else ("note_off",0))
+
+	@property
+	def MidiStr(self):
+		return self.MidiType()[0] + " note=" + str(self.key) + " channel=0 velocity=" + str(self.MidiType()[1]) + ""
+
 	def activate(self):
-		return str(self)
+		return self.MidiStr
 
 	def reset(self):
 		self.active = True
@@ -68,10 +75,10 @@ class MackieButton(MackieCommand):
 		return str(retMsg)
 
 	def __repr__(self):
-		return str(self)
+		return self.MidiStr
 
 	def __str__(self):
-		return (("note_on" if self.active else "note_off") + " note=" + str(self.key) + " channel=0 velocity=127")
+		return self.MidiStr
 
 @dataclass
 class MackiePrevNext():
@@ -125,6 +132,8 @@ class MackieTrack(MackieButton):
 	##
 	#change: MackiePrevNext = MackiePrevNext(48,49)
 
+
+
 	@property
 	def MidiMsg(self):
 		return self.midiMsg
@@ -134,7 +143,7 @@ class MackieTrack(MackieButton):
 		self.midiMsg = msg.copy()
 	
 	def __post_init__(self):
-		self.midiMsg = mido.Message.from_str(str(self))
+		self.midiMsg = mido.Message.from_str(self.MidiStr)
 
 @dataclass
 class MackieFaderBank:
@@ -211,7 +220,7 @@ else:
 	print("Updating from: " + str(msg2))
 	tracks[msg2.note-24].MidiMsg = msg2.copy()
 
-	print("Updated: " + str(tracks[msg2.note-24].midiMsg))
+	print("Updated: " + str(tracks[msg2.note-24].MidiMsg))
 
 	#
 	#	Here we need to sync this back to the actual TrackMessages
