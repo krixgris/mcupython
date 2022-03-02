@@ -59,18 +59,22 @@ class MackieButton(MackieCommand):
 	mcType:MCType = MCType.note
 
 	def MidiType(self)->tuple():
-		return (("note_on",127) if self.active else ("note_off",0))
+		return (("note_off",0) if self.active else ("note_on",127))
 
 	@property
-	def MidiStr(self):
+	def MidiStr(self)->str:
+		#consider changing to normal method, and accept parameter to force on/off message
 		return self.MidiType()[0] + " note=" + str(self.key) + " channel=0 velocity=" + str(self.MidiType()[1]) + ""
 
 	def activate(self):
+		# pointless? just use MidiStr? or change behaviour for it to make sense
 		return self.MidiStr
 
 	def reset(self):
+		# ensure active is true, to generate a note OFF message to reset
+		# technically speaking this should always be an off message..perhaps re-think this a little
 		self.active = True
-		retMsg = str(self)
+		retMsg = self.MidiStr
 		self.active = False
 		return str(retMsg)
 
@@ -107,6 +111,7 @@ class MackiePrevNext():
 @dataclass
 class MackieBank:
 	# is this just redundant?
+	
 	##
 	#	Important thing here is to check if currently selected bank has a selected track, i.e. "is this the right bank?"
 	#	Ideally, we will want to ensure that we follow the selected track, so some kind of logic to also determine the smart way to find it is needed
@@ -121,10 +126,13 @@ class MackieBank:
 @dataclass
 class MackieTrack(MackieButton):
 	# is this just redundant?
+	#
+	# does this do anything other than a normal mackiebutton? mackiebutton might look better as mackienote... uncertain
+	#
 	key:int
 	#state:bool = False
 	#mcType:MCType = MCType.note
-	midiMsg = None#:mido.Message = mido.Message(type='note_off') #must init to a type
+	midiMsg = None #must init to a type? this is over
 	Name:str = ""
 	##
 	#	Selecting a track out of the 8 deselects the others. We only need to send deltas, so just sending the previous selected to reset/off and new track active is enough
@@ -133,7 +141,11 @@ class MackieTrack(MackieButton):
 	#change: MackiePrevNext = MackiePrevNext(48,49)
 
 
-
+	#
+	# this whole section is sketchy as note_off etc is kept track of in 2 places which seems tricky.. 
+	# is there a gain to having these objects? is it enough to just return a string?
+	# 
+	#
 	@property
 	def MidiMsg(self):
 		return self.midiMsg
