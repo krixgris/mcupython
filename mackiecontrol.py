@@ -55,16 +55,23 @@ class MackieCommand(ABC):
 
 @dataclass
 class MackieButton(MackieCommand):
-
+	active:bool = False
 	mcType:MCType = MCType.note
+
 	def activate(self):
-		return ("note_on note=" + str(self.key) + " channel=0 velocity=127")
+		return str(self)
+
 	def reset(self):
-		pass
+		self.active = True
+		retMsg = str(self)
+		self.active = False
+		return str(retMsg)
+
 	def __repr__(self):
-		return ("note_on note=" + str(self.key) + " channel=0 velocity=127")
+		return str(self)
+
 	def __str__(self):
-		return ("note_on note=" + str(self.key) + " channel=0 velocity=127")
+		return (("note_off" if self.active else "note_on") + " note=" + str(self.key) + " channel=0 velocity=127")
 
 @dataclass
 class MackiePrevNext():
@@ -185,10 +192,23 @@ print(msg2)
 if(msg2 in TrackMessages):
 	print("Equal on note " + str(msg2.note))
 else:
-	print("Not Equal" + str(msg2))
-	print(tracks[msg2.note-24])
-	tracks[msg2.note-24] = msg2.copy()
-	print(tracks[msg2.note-24])
-#print(TrackMessages)
+	print("Not Equal: " + str(msg2))
+	print(TrackMessages[msg2.note-24])
+	#
+	TrackMessages[msg2.note-24] = msg2.copy()
+	#
+	#	Here we need to sync this back to the actual TrackMessages
+	#
+	#	Maybe smartest way is to analyze the changed message, and update what is changed
+	#	Do we need to maintain both trackmessages as well as tracks here? Seems redundant
+	#
+	print(TrackMessages[msg2.note-24])
+	print(tracks)
 
+#print(TrackMessages)
+print("Test outputs")
+print(tracks[0])
+print(tracks[0].activate())
+print(tracks[0].reset())
+print(str(tracks[0]))
 print("End")
