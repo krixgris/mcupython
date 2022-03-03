@@ -7,7 +7,7 @@ from abc import ABC, abstractclassmethod
 
 import mido
 
-from mackiekeys import MCKeys
+from mackiekeys import MCKeys, MCTracks
 
 #
 #	testa asdict()
@@ -174,7 +174,7 @@ class MackieFaderBank:
 	Tracks: MackiePrevNext = MackiePrevNext(MCKeys.PREVTRACK,MCKeys.NEXTTRACK)
 @dataclass
 class MackieTrackBank:
-	Tracks = [MackieTrack(x+MCKeys.TRACK1) for x in range(8)]
+	Tracks = [MackieTrack(x+MCKeys.TRACK_1) for x in range(8)]
 	pass
 
 	def GetActiveTrack(self):
@@ -213,8 +213,12 @@ mcu.FaderBank.Tracks.Next()
 
 #print(asdict(mcu.Bank))
 
-tracks = [MackieTrack(x+MCKeys.TRACK1) for x in range(8)]
-trackDict = {x:MackieTrack(x) for x in range(MCKeys.TRACK1,MCKeys.TRACK8+1)}
+tracks = [MackieTrack(x+MCKeys.TRACK_1) for x in range(8)]
+
+# trackDict = {x:MackieTrack(x) for x in range(MCKeys.TRACK_1,MCKeys.TRACK_8+1)}
+
+trackDict = {t:MackieTrack(int(t)) for t in MCTracks}
+
 for t in tracks:
 	print(asdict(t))
 print(trackDict)
@@ -227,9 +231,9 @@ print(tracks[0].activate())
 
 #print(MackieButton(25))
 msg1 = mido.Message.from_str(str(tracks[0]))
-msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK1, time=0)
+msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK_1, time=0)
 
-msg3 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK8, time=0)
+msg3 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK_8, time=0)
 
 TrackMessages = [mido.Message.from_str(str(t)) for t in tracks]
 
@@ -242,19 +246,19 @@ print(msg2)
 #
 # smart compare possibly... or if *not* exist, query the change required?
 
-if(msg2 in [t.midiMsg for t in tracks]):
-	print("Equal on note " + str(msg2.note))
-	print(msg2)
-	print(msg2.note)
-	print(int(msg2.note))
-else:
-	print("Not Equal: " + str(msg2))
-	print(tracks[msg2.note-24].midiMsg)
-	#
-	print("Updating from: " + str(msg2))
-	tracks[msg2.note-MCKeys.TRACK1].MidiMsg = msg2.copy()
+# if(msg2 in [t.midiMsg for t in tracks]):
+# 	print("Equal on note " + str(msg2.note))
+# 	print(msg2)
+# 	print(msg2.note)
+# 	print(int(msg2.note))
+# else:
+# 	print("Not Equal: " + str(msg2))
+# 	print(tracks[msg2.note-24].midiMsg)
+# 	#
+# 	print("Updating from: " + str(msg2))
+# 	tracks[msg2.note-MCKeys.TRACK_1].MidiMsg = msg2.copy()
 
-	print("Updated: " + str(tracks[msg2.note-MCKeys.TRACK1].MidiMsg))
+# 	print("Updated: " + str(tracks[msg2.note-MCKeys.TRACK_1].MidiMsg))
 
 	#
 	#	Here we need to sync this back to the actual TrackMessages
@@ -264,10 +268,10 @@ else:
 	#
 	#	Do we care?
 	#
-	print(tracks[msg2.note-MCKeys.TRACK1])
+	# print(tracks[msg2.note-MCKeys.TRACK_1])
 	
 	#print(tracks)
-print(tracks[msg2.note-MCKeys.TRACK1].MidiStr)
+# print(tracks[msg2.note-MCKeys.TRACK_1].MidiStr)
 	
 #print(TrackMessages)
 #print("Test outputs")
@@ -276,7 +280,8 @@ print(tracks[msg2.note-MCKeys.TRACK1].MidiStr)
 # print(tracks[0].reset())
 # print(str(tracks[0]))
 
-
+for i in MCTracks:
+	print(type(i))
 
 if(msg3.note in trackDict):
 	print("It's a trackmessage")
@@ -284,3 +289,6 @@ else:
 	print("Nope, not in tracklist")
 
 print("End")
+
+# for s in MCKeys:
+# 	print(s)

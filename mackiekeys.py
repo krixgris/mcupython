@@ -5,16 +5,28 @@ from dataclasses import asdict, dataclass
 from enum import Enum, IntEnum, auto, unique
 from abc import ABC, abstractclassmethod
 
+
+@unique
+class MCTracks(IntEnum):
+	TRACK_1:int = 24
+	TRACK_2:int = 25
+	TRACK_3:int = 26
+	TRACK_4:int = 27
+	TRACK_5:int = 28
+	TRACK_6:int = 29
+	TRACK_7:int = 30
+	TRACK_8:int = 31
+
 @unique
 class MCKeys(IntEnum):
-	TRACK1 = 24
-	TRACK2 = 25
-	TRACK3 = 26
-	TRACK4 = 27
-	TRACK5 = 28
-	TRACK6 = 29
-	TRACK7 = 30
-	TRACK8 = 31
+	TRACK_1 = 24
+	TRACK_2 = 25
+	TRACK_3 = 26
+	TRACK_4 = 27
+	TRACK_5 = 28
+	TRACK_6 = 29
+	TRACK_7 = 30
+	TRACK_8 = 31
 	
 	FADERBANKMODE_ROUTING = 40
 	FADERBANKMODE_SENDS = 41
