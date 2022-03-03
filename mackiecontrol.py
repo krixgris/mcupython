@@ -15,6 +15,13 @@ from mackiekeys import MCKeys, MCTracks
 #	testa field()
 #
 
+class MCMidiMessage(mido.Message):
+	# simpler init for mackie message that are dead simple
+	# note_on = velocity 127
+	# note_off = velocity 0
+	# channel = 0
+	pass
+
 @unique
 class MidiType(Enum):
 	note_on = 'note_on'#auto()
