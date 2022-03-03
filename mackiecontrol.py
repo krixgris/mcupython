@@ -7,12 +7,14 @@ from abc import ABC, abstractclassmethod
 
 import mido
 
+from mackiekeys import MCKeys
 
 #
 #	testa asdict()
 #
 #	testa field()
 #
+
 @unique
 class MidiType(Enum):
 	note_on = 'note_on'#auto()
@@ -58,8 +60,12 @@ class MackieButton(MackieCommand):
 	active:bool = False
 	mcType:MCType = MCType.note
 
-	def MidiType(self)->tuple():
-		return (("note_off",0) if self.active else ("note_on",127))
+	# def MidiType(self)->tuple():
+	# 	return (("note_off",0) if self.active else ("note_on",127))
+	def MidiType(self, Override:bool=False,OnMessage:bool=False)->tuple():
+		if(not Override):
+			OnMessage = not self.active
+		return (("note_off",0) if not OnMessage else ("note_on",127))
 
 	@property
 	def MidiStr(self)->str:
@@ -120,7 +126,7 @@ class MackieBank:
 	#
 	##
 	BankList = "Some list of n banks. Each Bank has 8 tracks"
-	change: MackiePrevNext = MackiePrevNext(46,47)
+	change: MackiePrevNext = MackiePrevNext(MCKeys.PREVBANK,MCKeys.NEXTBANK)
 	
 
 @dataclass
@@ -164,8 +170,18 @@ class MackieFaderBank:
 	#	Might be best to extend MackiePrevNext for to avoid code duplication, general names for lists etc..
 	#	
 	#
-	Banks: MackiePrevNext = MackiePrevNext(46,47)
-	Tracks: MackiePrevNext = MackiePrevNext(48,49)
+	Banks: MackiePrevNext = MackiePrevNext(MCKeys.PREVBANK,MCKeys.NEXTBANK)
+	Tracks: MackiePrevNext = MackiePrevNext(MCKeys.PREVTRACK,MCKeys.NEXTTRACK)
+@dataclass
+class MackieTrackBank:
+	Tracks = [MackieTrack(x+MCKeys.TRACK1) for x in range(8)]
+	pass
+
+	def GetActiveTrack(self):
+		pass
+	def SetActiveTrack(self):
+		pass
+
 
 @dataclass
 class MackieControl:
@@ -179,10 +195,10 @@ class MackieControl:
 	#Bank = MackieBank() ## Allows to view list of banks, as well as navigating prev/next
 	#Tracks = MackieTrack() ## Allows to view list of tracks, as well as navigating prev/next, Tracks live in banks. 8 tracks per bank
 							## Actual MCU Controller only ever knows of 'current track list'..no concept of keeping track of banks exists
-	btnF1 = MackieButton(54)
-	btnF2 = MackieButton(55)
-	btnF3 = MackieButton(56)
-	btnF4 = MackieButton(57)
+	btnF1 = MackieButton(MCKeys.F1)
+	btnF2 = MackieButton(MCKeys.F2)
+	btnF3 = MackieButton(MCKeys.F3)
+	btnF4 = MackieButton(MCKeys.F4)
 
 mcu = MackieControl()
 mcu.FaderBank.Banks.Next()
@@ -197,7 +213,7 @@ mcu.FaderBank.Tracks.Next()
 
 #print(asdict(mcu.Bank))
 
-tracks = [MackieTrack(x+24) for x in range(8)]
+tracks = [MackieTrack(x+MCKeys.TRACK1) for x in range(8)]
 for t in tracks:
 	print(asdict(t))
 
@@ -210,7 +226,7 @@ print(tracks[0].activate())
 
 #print(MackieButton(25))
 msg1 = mido.Message.from_str(str(tracks[0]))
-msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=26, time=0)
+msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK1, time=0)
 
 TrackMessages = [mido.Message.from_str(str(t)) for t in tracks]
 
@@ -225,14 +241,17 @@ print(msg2)
 
 if(msg2 in [t.midiMsg for t in tracks]):
 	print("Equal on note " + str(msg2.note))
+	print(msg2)
+	print(msg2.note)
+	print(int(msg2.note))
 else:
 	print("Not Equal: " + str(msg2))
 	print(tracks[msg2.note-24].midiMsg)
 	#
 	print("Updating from: " + str(msg2))
-	tracks[msg2.note-24].MidiMsg = msg2.copy()
+	tracks[msg2.note-MCKeys.TRACK1].MidiMsg = msg2.copy()
 
-	print("Updated: " + str(tracks[msg2.note-24].MidiMsg))
+	print("Updated: " + str(tracks[msg2.note-MCKeys.TRACK1].MidiMsg))
 
 	#
 	#	Here we need to sync this back to the actual TrackMessages
@@ -242,9 +261,11 @@ else:
 	#
 	#	Do we care?
 	#
-	print(tracks[msg2.note-24])
+	print(tracks[msg2.note-MCKeys.TRACK1])
+	
 	#print(tracks)
-
+print(tracks[msg2.note-MCKeys.TRACK1].MidiStr)
+	
 #print(TrackMessages)
 #print("Test outputs")
 # print(tracks[0])
