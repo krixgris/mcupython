@@ -214,9 +214,10 @@ mcu.FaderBank.Tracks.Next()
 #print(asdict(mcu.Bank))
 
 tracks = [MackieTrack(x+MCKeys.TRACK1) for x in range(8)]
+trackDict = {x+MCKeys.TRACK1:MackieTrack(x+MCKeys.TRACK1) for x in range(8)}
 for t in tracks:
 	print(asdict(t))
-
+print(trackDict)
 
 
 mcu.btnF3.activate()
@@ -227,6 +228,8 @@ print(tracks[0].activate())
 #print(MackieButton(25))
 msg1 = mido.Message.from_str(str(tracks[0]))
 msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK1, time=0)
+
+msg3 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.F2, time=0)
 
 TrackMessages = [mido.Message.from_str(str(t)) for t in tracks]
 
@@ -272,4 +275,12 @@ print(tracks[msg2.note-MCKeys.TRACK1].MidiStr)
 # print(tracks[0].activate())
 # print(tracks[0].reset())
 # print(str(tracks[0]))
+
+
+
+if(msg3.note in trackDict):
+	print("It's a trackmessage")
+else:
+	print("Nope, not in tracklist")
+
 print("End")
