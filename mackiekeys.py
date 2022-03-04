@@ -109,6 +109,34 @@ class MCTracksVPots(IntEnum):
 
 @unique
 class MCKeys(IntEnum):
+	"""NOTES - Contains all Mackie note events"""
+	TRACK_1_REC = 0
+	TRACK_2_REC = 1
+	TRACK_3_REC = 2
+	TRACK_4_REC = 3
+	TRACK_5_REC = 4
+	TRACK_6_REC = 5
+	TRACK_7_REC = 6
+	TRACK_8_REC = 7
+
+	TRACK_1_SOLO = 8
+	TRACK_2_SOLO = 9
+	TRACK_3_SOLO = 10
+	TRACK_4_SOLO = 11
+	TRACK_5_SOLO = 12
+	TRACK_6_SOLO = 13
+	TRACK_7_SOLO = 14
+	TRACK_8_SOLO = 15
+
+	TRACK_1_MUTE = 16
+	TRACK_2_MUTE = 17
+	TRACK_3_MUTE = 18
+	TRACK_4_MUTE = 19
+	TRACK_5_MUTE = 20 
+	TRACK_6_MUTE = 21
+	TRACK_7_MUTE = 22
+	TRACK_8_MUTE = 23
+	
 	TRACK_1 = 24
 	TRACK_2 = 25
 	TRACK_3 = 26
