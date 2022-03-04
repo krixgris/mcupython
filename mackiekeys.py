@@ -26,19 +26,19 @@ class MCJogWheel(IntEnum):
 	FWD = 1
 
 @unique
-class MCTracksPitchCH(IntEnum):
+class MCTracksFaderCH(IntEnum):
 	"""CHANNELS, not CC nor Notes"""
 
-	PITCH_TRACK_1 = 0
-	PITCH_TRACK_2 = 1
-	PITCH_TRACK_3 = 2
-	PITCH_TRACK_4 = 3
-	PITCH_TRACK_5 = 4
-	PITCH_TRACK_6 = 5
-	PITCH_TRACK_7 = 6
-	PITCH_TRACK_8 = 7
+	FADER_TRACK_1 = 0
+	FADER_TRACK_2 = 1
+	FADER_TRACK_3 = 2
+	FADER_TRACK_4 = 3
+	FADER_TRACK_5 = 4
+	FADER_TRACK_6 = 5
+	FADER_TRACK_7 = 6
+	FADER_TRACK_8 = 7
 
-	PITCH_MASTER = 8
+	FADER_MASTER = 8
 
 @unique
 class MCTracksVPotCC(IntEnum):
