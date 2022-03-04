@@ -20,6 +20,12 @@ from abc import ABC, abstractclassmethod
 #
 
 @unique
+class MCJogWheel(IntEnum):
+	CC = 63
+	BACK = 65
+	FWD = 1
+
+@unique
 class MCTracksPitchCH(IntEnum):
 	"""CHANNELS, not CC nor Notes"""
 
