@@ -10,12 +10,14 @@ import mido
 from mackiekeys import MCKeys, MCTracks
 
 #
-#	testa asdict()
-#
-#	testa field()
-#
+#	Conventions:
+#	mido refers to channels with a 0 index, so channel 0 = 1, 1 = 2, 15 = 16 and so on
+#	i tried to stay consistent with this throughout in comments etc, but it is confusing if you're used to "real midi"
 
-class MCMidiMessage(mido.Message):
+@dataclass
+class MCMidiMessage:
+	def NoteOn(self):
+		pass
 	# simpler init for mackie message that are dead simple
 	# note_on = velocity 127
 	# note_off = velocity 0
@@ -24,6 +26,8 @@ class MCMidiMessage(mido.Message):
 
 @unique
 class MidiType(Enum):
+	# perhaps tuples with type and value-column? sysex would have sysex,data, whereas note_on,note and so on
+	# cc should have note as well i think, but not certain
 	note_on = 'note_on'#auto()
 	note_off = 'note_off'#auto()
 	cc = 'control_change' #auto()
@@ -38,6 +42,7 @@ class MCType(Enum):
 	sysex = auto()
 
 class MackieNote(mido.Message):
+	# not really used, should be removed
 	Msg: mido.Message
 	def On(self)->mido.Message:
 		return mido.Message(type='note_on', note=self.note, channel=self.channel, velocity=127)
@@ -96,6 +101,20 @@ class MackieButton(MackieCommand):
 
 	def __str__(self):
 		return self.MidiStr
+
+@dataclass
+class MackieKnob(MackieCommand):
+	"""CC16-23 on channel 0"""
+	pass
+
+@dataclass
+class MackieFader(MackieCommand):
+	"""Pitchbend on channels 0-8 (tracks1-8 and master on channel 8"""
+	pass
+
+class MackieJogWheel(MackieCommand):
+	"""CC60 on channel 1, value 1 UP, value 65 down"""
+	pass
 
 @dataclass
 class MackiePrevNext():
