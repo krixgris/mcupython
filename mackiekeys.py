@@ -149,13 +149,7 @@ class MCKeys(IntEnum):
 
 	TRACKCONTROL_READAUTO = 74
 	TRACKCONTROL_WRITEAUTO = 75
-	# TRACKCONTROL_
-	# TRACKCONTROL_
-	# TRACKCONTROL_
-	# TRACKCONTROL_
-	# TRACKCONTROL_
-	# TRACKCONTROL_
-	# TRACKCONTROL_
+
 	SENDS = 76 #untested
 	PROJECT = 77 #seems to go back to project window from for instance mixer, maybe instrument too? needs testing
 	MIXER = 78 # opens mixconsole 1
