@@ -28,7 +28,6 @@ class MCJogWheel(IntEnum):
 @unique
 class MCTracksFaderCH(IntEnum):
 	"""CHANNELS, not CC nor Notes"""
-
 	FADER_TRACK_1 = 0
 	FADER_TRACK_2 = 1
 	FADER_TRACK_3 = 2
@@ -97,6 +96,7 @@ class MCTracks(IntEnum):
 
 @unique
 class MCTracksVPots(IntEnum):
+	# Encoder clicks send notes
 	VPOT_TRACK_1 = 32
 	VPOT_TRACK_2 = 33
 	VPOT_TRACK_3 = 34
@@ -146,6 +146,11 @@ class MCKeys(IntEnum):
 	F2 = 55
 	F3 = 56
 	F4 = 57
+	
+	#
+	# Span 58-69 is unknown for now
+	# Guesstimations suggest part of the range, or the full range covers F5-F8 as well as shifted-versions of F1-F8
+	#
 
 	UNDO = 70
 	REDO = 71
@@ -188,7 +193,9 @@ class MCKeys(IntEnum):
 	MIDDLE = 100
 
 	SCRUB = 101
-
+	#
+	# Span 102-103 is unknown for now
+	#
 	FADER_1_TOUCH = 104
 	FADER_2_TOUCH = 105
 	FADER_3_TOUCH = 106
@@ -198,3 +205,6 @@ class MCKeys(IntEnum):
 	FADER_7_TOUCH = 110
 	FADER_8_TOUCH = 111
 	FADER_MASTER_TOUCH = 112
+	#
+	# Span 112-127 is unknown for now
+	#
