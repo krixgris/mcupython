@@ -1,13 +1,13 @@
 #mackiecontrol.py
 #
 #
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum, auto, unique
 from abc import ABC, abstractclassmethod
 
 import mido
 
-from mackiekeys import MCKeys, MCTracks
+from mackiekeys import MCKeys, MCTracks, MCTracksFaderCH, MCTracksVPotCC
 
 #
 #	Conventions:
@@ -72,6 +72,14 @@ class MackieButton(MackieCommand):
 	active:bool = False
 	mcType:MCType = MCType.note
 
+	onMsg:mido.Message = field(init=False)
+	offMsg:mido.Message = field(init=False)
+
+	# def select(self)->mido.Message:
+	# 	pass
+	# def deselect(self)->mido.Message:
+	# 	pass
+
 	# def MidiType(self)->tuple():
 	# 	return (("note_off",0) if self.active else ("note_on",127))
 	def MidiType(self, Override:bool=False,OnMessage:bool=False)->tuple():
@@ -96,6 +104,10 @@ class MackieButton(MackieCommand):
 		self.active = False
 		return str(retMsg)
 
+	def __post_init__(self):
+		self.onMsg = mido.Message(type='note_on',note=self.key, channel=0, velocity=127)
+		self.onMsg = mido.Message(type='note_off',note=self.key, channel=0, velocity=0)
+
 	def __repr__(self):
 		return self.MidiStr
 
@@ -105,16 +117,44 @@ class MackieButton(MackieCommand):
 @dataclass
 class MackieKnob(MackieCommand):
 	"""CC16-23 on channel 0"""
+	mcType:MCType = MCType.cc
+	ccMsg:mido.Message = field(init=False)
 	pass
+	def activate(self):
+		pass
+	def reset(self):
+		pass
+
+	def __post_init__(self):
+		self.ccMsg = mido.Message(type='control_change',control=self.key, channel=0, value=0)
 
 @dataclass
 class MackieFader(MackieCommand):
 	"""Pitchbend on channels 0-8 (tracks1-8 and master on channel 8"""
+	mcType:MCType = MCType.pitch
+	pitchMsg:mido.Message = field(init=False)
 	pass
+	def activate(self):
+		pass
+	def reset(self):
+		pass
+	def __post_init__(self):
+		self.pitchMsg = mido.Message(type='pitchwheel', channel=self.key, pitch=0)
+
 
 class MackieJogWheel(MackieCommand):
 	"""CC60 on channel 1, value 1 UP, value 65 down"""
-	pass
+	mcType:MCType = MCType.cc
+	backMsg:mido.Message = field(init=False)
+	fwdMsg:mido.Message = field(init=False)
+
+	def activate(self):
+		pass
+	def reset(self):
+		pass
+	def __post_init__(self):
+		self.backMsg = mido.Message(type='control_change',control=self.key, channel=0, value=65)
+		self.fwdMsg = mido.Message(type='control_change',control=self.key, channel=0, value=1)
 
 @dataclass
 class MackiePrevNext():
@@ -156,16 +196,30 @@ class MackieBank:
 	
 
 @dataclass
-class MackieTrack(MackieButton):
-	# is this just redundant?
+class MackieTrack:
+	# not redundant anymore, but inheritance is not a good idea
+	# a MackieTrack should have a select track, volume fader, vpot, rec, mute, solo
+	# a track number is likely a good idea as well. 1-8
+	# 
 	#
 	# does this do anything other than a normal mackiebutton? mackiebutton might look better as mackienote... uncertain
 	#
-	key:int
-	#state:bool = False
-	#mcType:MCType = MCType.note
-	midiMsg = None #must init to a type? this is over
+	trackindex:int
+	key:int = field(init=False) # used to compare track selection from daw
+	
+
+	select:MackieButton = None
+	rec:MackieButton = None
+	solo:MackieButton = None
+	mute:MackieButton = None
+	vpot:MackieButton = None
+	vpotCC:MackieKnob = None
+	fader:MackieFader = None
+	fadertouch:MackieButton = None
+	
 	Name:str = ""
+
+	
 	##
 	#	Selecting a track out of the 8 deselects the others. We only need to send deltas, so just sending the previous selected to reset/off and new track active is enough
 	#	If track isn't in current bank, all tracks will be OFF/inactive/reset
@@ -173,11 +227,6 @@ class MackieTrack(MackieButton):
 	#change: MackiePrevNext = MackiePrevNext(48,49)
 
 
-	#
-	# this whole section is sketchy as note_off etc is kept track of in 2 places which seems tricky.. 
-	# is there a gain to having these objects? is it enough to just return a string?
-	# 
-	#
 	@property
 	def MidiMsg(self):
 		return self.midiMsg
@@ -187,7 +236,20 @@ class MackieTrack(MackieButton):
 		self.midiMsg = msg.copy()
 	
 	def __post_init__(self):
-		self.midiMsg = mido.Message.from_str(self.MidiStr)
+		# TRACK_1 used as offset for index to get correct midi note
+		#
+		i = self.trackindex
+		self.key = i+MCTracks.TRACK_1
+		self.select = MackieButton(i+MCTracks.TRACK_1)
+		self.rec = MackieButton(i+MCKeys.TRACK_1_REC)
+		self.solo = MackieButton(i+MCKeys.TRACK_1_SOLO)
+		self.mute = MackieButton(i+MCKeys.TRACK_1_MUTE)
+		self.vpot = MackieButton(i+MCKeys.VPOT_TRACK_1)
+		self.fadertouch = MackieButton(i+MCKeys.FADER_1_TOUCH)
+		self.vpotCC = MackieKnob(i+MCTracksVPotCC.VPOT_CC_TRACK_1)
+		self.fader = MackieFader(i+MCTracksFaderCH.FADER_TRACK_1)
+		#self.TrackIndex = self.key-MCTracks.TRACK_1
+		#self.midiMsg = mido.Message.from_str(self.MidiStr)
 
 @dataclass
 class MackieFaderBank:
@@ -200,7 +262,7 @@ class MackieFaderBank:
 	Tracks: MackiePrevNext = MackiePrevNext(MCKeys.PREVTRACK,MCKeys.NEXTTRACK)
 @dataclass
 class MackieTrackBank:
-	Tracks = [MackieTrack(x+MCKeys.TRACK_1) for x in range(8)]
+	#Tracks = [MackieTrack(x+MCKeys.TRACK_1) for x in range(8)]
 	pass
 
 	def GetActiveTrack(self):
@@ -211,6 +273,14 @@ class MackieTrackBank:
 
 @dataclass
 class MackieControl:
+	#
+	# Has: 8 tracks
+	# Bank selector
+	# Mode selector
+	# Master fader
+	# Read, Automation, that changes selected track i daw (not necessary to have a selected bank/track)
+	# 
+	# 
 	FaderBank = MackieFaderBank()
 	#
 	Bank:None = None 	# Separate object? Holds what? List of track names? Keeps track of magic autobank?
@@ -230,6 +300,9 @@ mcu = MackieControl()
 mcu.FaderBank.Banks.Next()
 mcu.FaderBank.Tracks.Next()
 
+t = MackieTrack(0)
+print(t)
+
 #mcu.FaderBank.TrackNext() ? NextTrack() ? Or objects inside faderbank for banks/tracks..
 
 # mcu.Bank.change.Next()
@@ -239,29 +312,29 @@ mcu.FaderBank.Tracks.Next()
 
 #print(asdict(mcu.Bank))
 
-tracks = [MackieTrack(x+MCKeys.TRACK_1) for x in range(8)]
+# tracks = [MackieTrack(x+MCKeys.TRACK_1) for x in range(8)]
 
 # trackDict = {x:MackieTrack(x) for x in range(MCKeys.TRACK_1,MCKeys.TRACK_8+1)}
 
-trackDict = {t:MackieTrack(int(t)) for t in MCTracks}
+# trackDict = {t:MackieTrack(int(t)) for t in MCTracks}
 
-for t in tracks:
-	print(asdict(t))
-print(trackDict)
+# for t in tracks:
+# 	print(asdict(t))
+# print(trackDict)
 
 
 mcu.btnF3.activate()
 
 print("Start")
-print(tracks[0].activate())
+#print(tracks[0].activate())
 
 #print(MackieButton(25))
-msg1 = mido.Message.from_str(str(tracks[0]))
+msg1 = None#mido.Message.from_str(str(tracks[0]))
 msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK_1, time=0)
 
 msg3 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK_8, time=0)
 
-TrackMessages = [mido.Message.from_str(str(t)) for t in tracks]
+#TrackMessages = [mido.Message.from_str(str(t)) for t in tracks]
 
 print(msg1)
 print(msg2)
@@ -306,13 +379,16 @@ print(msg2)
 # print(tracks[0].reset())
 # print(str(tracks[0]))
 
-for i in MCTracks:
-	print(type(i))
+# for i in MCTracks:
+# 	print(type(i))
 
-if(msg3.note in trackDict):
-	print("It's a trackmessage")
-else:
-	print("Nope, not in tracklist")
+# if(msg3.note in trackDict):
+# 	print("It's a trackmessage")
+# else:
+# 	print("Nope, not in tracklist")
+TrackList = [MackieTrack(i) for i in range(len(MCTracks))]
+print(TrackList[7])
+#print(len(MCTracks))
 
 print("End")
 

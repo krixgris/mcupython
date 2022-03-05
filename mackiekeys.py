@@ -174,9 +174,13 @@ class MCKeys(IntEnum):
 	F2 = 55
 	F3 = 56
 	F4 = 57
-	
+	F5 = 58
+	F6 = 59
+	F7 = 60
+	F8 = 61
+
 	#
-	# Span 58-69 is unknown for now
+	# Span 62-69 is unknown for now
 	# Guesstimations suggest part of the range, or the full range covers F5-F8 as well as shifted-versions of F1-F8
 	#
 
