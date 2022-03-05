@@ -106,7 +106,7 @@ class MackieButton(MackieCommand):
 
 	def __post_init__(self):
 		self.onMsg = mido.Message(type='note_on',note=self.key, channel=0, velocity=127)
-		self.onMsg = mido.Message(type='note_off',note=self.key, channel=0, velocity=0)
+		self.offMsg = mido.Message(type='note_off',note=self.key, channel=0, velocity=0)
 
 	def __repr__(self):
 		return self.MidiStr
@@ -251,28 +251,19 @@ class MackieTrack:
 		#self.TrackIndex = self.key-MCTracks.TRACK_1
 		#self.midiMsg = mido.Message.from_str(self.MidiStr)
 
+	def __repr__(self):
+		return f"{self.select.mcType} {str(MCTracks(self.key))} ({MCTracks(self.key)})" 
+
 @dataclass
 class MackieFaderBank:
-	#
-	#	Bank and Track objects instead? Which also keep lists of tracks and banks, currently selected and whatnot
-	#	Might be best to extend MackiePrevNext for to avoid code duplication, general names for lists etc..
-	#	
-	#
 	Banks: MackiePrevNext = MackiePrevNext(MCKeys.PREVBANK,MCKeys.NEXTBANK)
 	Tracks: MackiePrevNext = MackiePrevNext(MCKeys.PREVTRACK,MCKeys.NEXTTRACK)
-@dataclass
-class MackieTrackBank:
-	#Tracks = [MackieTrack(x+MCKeys.TRACK_1) for x in range(8)]
-	pass
-
-	def GetActiveTrack(self):
-		pass
-	def SetActiveTrack(self):
-		pass
 
 
 @dataclass
 class MackieControl:
+	track_index:int = 0 # 0-7
+	ActiveBank:bool = False
 	#
 	# Has: 8 tracks
 	# Bank selector
@@ -282,112 +273,62 @@ class MackieControl:
 	# 
 	# 
 	FaderBank = MackieFaderBank()
-	#
 	Bank:None = None 	# Separate object? Holds what? List of track names? Keeps track of magic autobank?
-						# 
-	#
-	#
-	#
-	#Bank = MackieBank() ## Allows to view list of banks, as well as navigating prev/next
-	#Tracks = MackieTrack() ## Allows to view list of tracks, as well as navigating prev/next, Tracks live in banks. 8 tracks per bank
-							## Actual MCU Controller only ever knows of 'current track list'..no concept of keeping track of banks exists
+	Tracks = [MackieTrack(i) for i in range(len(MCTracks))]
+	
+
 	btnF1 = MackieButton(MCKeys.F1)
 	btnF2 = MackieButton(MCKeys.F2)
 	btnF3 = MackieButton(MCKeys.F3)
 	btnF4 = MackieButton(MCKeys.F4)
 
+	def GetActiveTrack(self):
+		pass
+	def SetActiveTrack(self):
+		pass
+
+
 mcu = MackieControl()
 mcu.FaderBank.Banks.Next()
 mcu.FaderBank.Tracks.Next()
 
+
+
 t = MackieTrack(0)
 print(t)
 
-#mcu.FaderBank.TrackNext() ? NextTrack() ? Or objects inside faderbank for banks/tracks..
-
-# mcu.Bank.change.Next()
-# mcu.Bank.change.Prev()
-# mcu.Tracks.change.Next()
-# mcu.Tracks.change.Prev()
-
-#print(asdict(mcu.Bank))
-
-# tracks = [MackieTrack(x+MCKeys.TRACK_1) for x in range(8)]
-
-# trackDict = {x:MackieTrack(x) for x in range(MCKeys.TRACK_1,MCKeys.TRACK_8+1)}
-
-# trackDict = {t:MackieTrack(int(t)) for t in MCTracks}
-
-# for t in tracks:
-# 	print(asdict(t))
-# print(trackDict)
-
-
-mcu.btnF3.activate()
-
 print("Start")
-#print(tracks[0].activate())
 
-#print(MackieButton(25))
 msg1 = None#mido.Message.from_str(str(tracks[0]))
-msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK_1, time=0)
+msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK_2, time=0)
+msg3 = mido.Message(type="note_on",channel=0,velocity=127,note=int(MCKeys.TRACK_2), time=0)
+if(msg3.note in t.key for t in mcu.Tracks):
+	print(f"{msg3} is equal to {t}")
+for t in mcu.Tracks:
+	print(t.key)
 
-msg3 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK_8, time=0)
-
-#TrackMessages = [mido.Message.from_str(str(t)) for t in tracks]
-
-print(msg1)
-print(msg2)
-# this finds msg in trackmessages-list.. keep in mind note on only, which we might want?
-# or figure out if we need a similar, but note off? note off handled... time is a potential issue, but can be forced to time 0
-#
-# this also requires us to ensure that we only compare keys in the index, so no index out of bounds.. i.e. only check for notes within 24-31
-#
-# smart compare possibly... or if *not* exist, query the change required?
+#print(msg1)
+#print(msg2)
 
 # if(msg2 in [t.midiMsg for t in tracks]):
 # 	print("Equal on note " + str(msg2.note))
 # 	print(msg2)
 # 	print(msg2.note)
 # 	print(int(msg2.note))
-# else:
-# 	print("Not Equal: " + str(msg2))
-# 	print(tracks[msg2.note-24].midiMsg)
-# 	#
-# 	print("Updating from: " + str(msg2))
-# 	tracks[msg2.note-MCKeys.TRACK_1].MidiMsg = msg2.copy()
 
-# 	print("Updated: " + str(tracks[msg2.note-MCKeys.TRACK_1].MidiMsg))
-
-	#
-	#	Here we need to sync this back to the actual TrackMessages
-	#
-	#	Maybe smartest way is to analyze the changed message, and update what is changed
-	#	Do we need to maintain both trackmessages as well as tracks here? Seems redundant
-	#
-	#	Do we care?
-	#
-	# print(tracks[msg2.note-MCKeys.TRACK_1])
-	
-	#print(tracks)
-# print(tracks[msg2.note-MCKeys.TRACK_1].MidiStr)
-	
-#print(TrackMessages)
-#print("Test outputs")
-# print(tracks[0])
-# print(tracks[0].activate())
-# print(tracks[0].reset())
-# print(str(tracks[0]))
 
 # for i in MCTracks:
 # 	print(type(i))
+
+
+# TrackList = [MackieTrack(i) for i in range(len(MCTracks))]
+# print(TrackList[7])
 
 # if(msg3.note in trackDict):
 # 	print("It's a trackmessage")
 # else:
 # 	print("Nope, not in tracklist")
-TrackList = [MackieTrack(i) for i in range(len(MCTracks))]
-print(TrackList[7])
+
 #print(len(MCTracks))
 
 print("End")
