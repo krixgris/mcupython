@@ -167,6 +167,10 @@ class MCKeys(IntEnum):
 	PREVTRACK = 48
 	NEXTTRACK = 49
 
+	FADER_FLIP = 50 # Flips vpot/fader functions
+	TRACK_CHANGE = 51 	# Is sent on track change regardless of bank
+						# Actually labeled EDIT or GLOBAL VIEW in "real" MCU
+						# We can use this to see if track is changed outside of bank
 	DISPLAY_NAME = 52 # Toggles lcd display top row to show for instance Pan etc..or the values of Pan
 	DISPLAY_BEATS = 53 # Time based or beats
 
@@ -190,8 +194,8 @@ class MCKeys(IntEnum):
 	SAVE = 72 #untested
 	REVERT = 73 #untested
 
-	TRACKCONTROL_READAUTO = 74
-	TRACKCONTROL_WRITEAUTO = 75
+	TRACKCONTROL_READAUTO = 74 	# Is sent on track changes, regardless of bank
+	TRACKCONTROL_WRITEAUTO = 75 # Is sent on track changes, regardless of bank
 
 	SENDS = 76 #untested
 	PROJECT = 77 #seems to go back to project window from for instance mixer, maybe instrument too? needs testing

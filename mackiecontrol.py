@@ -14,6 +14,11 @@ from mackiekeys import MCKeys, MCTracks, MCTracksFaderCH, MCTracksVPotCC
 #	mido refers to channels with a 0 index, so channel 0 = 1, 1 = 2, 15 = 16 and so on
 #	i tried to stay consistent with this throughout in comments etc, but it is confusing if you're used to "real midi"
 
+#
+#	General Mackie curiosity when changing tracks:
+#	MCU always sends Note 54 for Edit (D#2 or D#3 depending on daw middle C)
+#	as well as Note 74,75 (D4 and D#4 to get automation RW settings, as they're not stored per track)
+
 @dataclass
 class MCMidiMessage:
 	def NoteOn(self):
@@ -168,6 +173,7 @@ class MackiePrevNext():
 
 	btnPrev: MackieButton = None# = MackieButton(46)
 	btnNext: MackieButton = None# = MackieButton(47)
+
 	
 	def __post_init__(self):
 		self.btnPrev = MackieButton(self.prevKey)
@@ -206,7 +212,8 @@ class MackieTrack:
 	#
 	trackindex:int
 	key:int = field(init=False) # used to compare track selection from daw
-	
+	lastTrack:int = 7
+	n:int = field(init=False)
 
 	select:MackieButton = None
 	rec:MackieButton = None
@@ -225,7 +232,6 @@ class MackieTrack:
 	#	If track isn't in current bank, all tracks will be OFF/inactive/reset
 	##
 	#change: MackiePrevNext = MackiePrevNext(48,49)
-
 
 	@property
 	def MidiMsg(self):
@@ -252,13 +258,29 @@ class MackieTrack:
 		#self.midiMsg = mido.Message.from_str(self.MidiStr)
 
 	def __repr__(self):
-		return f"{self.select.mcType} {str(MCTracks(self.key))} ({MCTracks(self.key)})" 
+		return f"{self.select.mcType} {str(MCTracks(self.key))} ({MCTracks(self.key)})"
+	def __int__(self):
+		return self.key
+
+	# def __next__(self):
+	# 	if self.n < self.lastTrack:
+	# 		result = self.n+1
+	# 		self.n += 1
+	# 		return result
+	# 	else:
+	# 		raise StopIteration
+
 
 @dataclass
 class MackieFaderBank:
 	Banks: MackiePrevNext = MackiePrevNext(MCKeys.PREVBANK,MCKeys.NEXTBANK)
 	Tracks: MackiePrevNext = MackiePrevNext(MCKeys.PREVTRACK,MCKeys.NEXTTRACK)
 
+# @dataclass
+# class MackieTrackBank:
+# 	Tracks = [MackieTrack(i) for i in range(len(MCTracks))]
+
+		
 
 @dataclass
 class MackieControl:
@@ -275,7 +297,13 @@ class MackieControl:
 	FaderBank = MackieFaderBank()
 	Bank:None = None 	# Separate object? Holds what? List of track names? Keeps track of magic autobank?
 	Tracks = [MackieTrack(i) for i in range(len(MCTracks))]
+	TrackLookup:dict = field(init=False)
 	
+
+	PingTrack = MackieButton(MCKeys.TRACK_CHANGE)
+
+	PrevBank = MackieButton(MCKeys.PREVBANK)
+	NextBank = MackieButton(MCKeys.NEXTBANK)
 
 	btnF1 = MackieButton(MCKeys.F1)
 	btnF2 = MackieButton(MCKeys.F2)
@@ -287,25 +315,45 @@ class MackieControl:
 	def SetActiveTrack(self):
 		pass
 
-
-mcu = MackieControl()
-mcu.FaderBank.Banks.Next()
-mcu.FaderBank.Tracks.Next()
-
+	def __post_init__(self):
+		#self.TrackLookup = {self.Tracks[i].key:i for i in range(len(MCTracks))}
+		self.TrackLookup = {t.key:t.trackindex for t in self.Tracks}
 
 
-t = MackieTrack(0)
-print(t)
+# mcu = MackieControl()
+# mcu.FaderBank.Banks.Next()
+# mcu.FaderBank.Tracks.Next()
 
-print("Start")
+
+
+# t = MackieTrack(0)
+# print(t)
+
+# print("Start")
 
 msg1 = None#mido.Message.from_str(str(tracks[0]))
 msg2 = mido.Message(type="note_on",channel=0,velocity=127,note=MCKeys.TRACK_2, time=0)
-msg3 = mido.Message(type="note_on",channel=0,velocity=127,note=int(MCKeys.TRACK_2), time=0)
-if(msg3.note in t.key for t in mcu.Tracks):
-	print(f"{msg3} is equal to {t}")
-for t in mcu.Tracks:
-	print(t.key)
+msg3 = mido.Message(type="note_on",channel=0,velocity=127,note=int(MCKeys.TRACK_8), time=0)
+#if(msg3.note in {int(t.key):t for t in mcu.Tracks}):
+# if(msg3.note in mcu.TrackLookup):
+# 	#print("Is equal")
+# 	print(f"{msg3} is equal to {mcu.Tracks[msg3.note-MCTracks.TRACK_1].key}")
+
+
+	# print(t[msg3.note-MCTracks.TRACK_1].key)
+
+# for key in mcu.Tracks:
+# 	#print("Is equal")
+# 	print(str(int(key)))
+
+
+# tb = MackieTrackBank()
+# for t in tb:
+# 	print(t)
+# print(tb)
+
+#print(dict(mcu.Tracks))
+#print(type(mcu.Tracks))
 
 #print(msg1)
 #print(msg2)
@@ -331,7 +379,7 @@ for t in mcu.Tracks:
 
 #print(len(MCTracks))
 
-print("End")
+# print("End")
 
 # for s in MCKeys:
 # 	print(s)
