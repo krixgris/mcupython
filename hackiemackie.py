@@ -16,7 +16,7 @@ from midiconfig import MidiConfig as conf
 @dataclass
 class AutoBankHandler:
 	"""Handles banking and track switching attributes"""
-	pong_timeout = 0.500
+	pong_timeout = 0.500 # shared timeout length between track and banks
 
 	bank_queued = False
 	bank_running = False
@@ -273,10 +273,12 @@ def main()->None:
 					pong = True
 					banker.bank_pong = True
 
+					#	big issue here, with this message not going around to get the ping pong check until next loop.
+					#	uncertain how i can manipulate it.. possible to force reading messages from port?
 					print(f"Pong {pong} and Ping {ping} and QueuedBank {queuedBank}")
 					#
 					#	push dummy message cc127 (undefined for MCU) to port to ensure pong gets caught	
-					outportVirt.send(mackiecontrol.MackieKnob(127).ccMsg)
+					# outportVirt.send(mackiecontrol.MackieButton(122).onMsg)
 
 			if(msg.type == 'note_on' and msg.note in mcu.TrackLookup and msg.velocity == 127):
 				#outport.send(msg)
@@ -442,7 +444,6 @@ def main()->None:
 				print(f"Prev bank")
 				#bankDirectionNext = not bankDirectionNext
 				outportVirt.send(mcu.PrevBank.onMsg)
-			
 		#
 		#	End of Midi loop
 		#
