@@ -4,6 +4,7 @@
 import signal
 import sys
 import mido
+import atexit
 from time import perf_counter
 import time
 from dataclasses import asdict, dataclass
@@ -26,6 +27,20 @@ def print_debug(text:str,print_time=True, debug:bool=False):
 		if(print_time):
 			text = f"{timestamp()}{text}"
 		print(text)
+
+def close_and_quit(outport, outportVirt, multiPorts):
+	# outport.close()
+	print(f"Closing outputs: {outport}, {outportVirt}")
+	print(f"Closing inputs: {multiPorts}")
+	outport.close()
+	outportVirt.close()
+	for port in multiPorts:
+		port.close()
+	
+	print(f"{outport} closed: {outport.closed}")
+	print(f"{outportVirt} closed: {outportVirt.closed}")
+	print(f"{multiPorts} closed: {multiPorts}")
+	#sys.exit(0)
 
 
 @dataclass
@@ -72,6 +87,10 @@ class AutoBankHandler:
 	def bank_search(self):
 		"""Logic for starting search mode"""
 		self.bank_search_time = perf_counter()
+		self.bank_queued = True
+		self.bank_running = True
+		self.bank_direction = 0
+
 		print_debug(f"Bank searching started...")
 		pass
 	def bank_found(self):
@@ -154,6 +173,8 @@ def main()->None:
 	# dict for lookup/validation for mackie commands
 	MCDict = {x:x for x in MCKeys}
 	
+	atexit.register(close_and_quit,outport, outportVirt, multiPorts)
+
 	print_debug("HackieMackie Starting...Ctrl-C to terminate.", debug = True)
 	# MAIN LOOP
 	#
@@ -280,11 +301,13 @@ def main()->None:
 				else:
 					banker.bank_search()
 					# should be method
-					banker.bank_queued = True
-					banker.bank_running = True
-					banker.bank_direction = 0
+					# banker.bank_queued = True
+					# banker.bank_running = True
+					# banker.bank_direction = 0
 				
 				banker.bank_queued = True
+				
+				
 				# bankingRunning = True
 		
 		# PING PONG Logic
