@@ -29,17 +29,21 @@ def print_debug(text:str,print_time=True, debug:bool=False):
 		print(text)
 
 def close_and_quit(outport, outportVirt, multiPorts):
-	# outport.close()
-	print(f"Closing outputs: {outport}, {outportVirt}")
-	print(f"Closing inputs: {multiPorts}")
+	
+	print_debug(f"Cleaning up...closing ports...")
+	print_debug(f"Closing outputs: {outport.name}, {outportVirt.name}")
+	print_debug(f"Closing inputs: {''.join(port.name for port in multiPorts)}")
 	outport.close()
 	outportVirt.close()
 	for port in multiPorts:
 		port.close()
 	
-	print(f"{outport} closed: {outport.closed}")
-	print(f"{outportVirt} closed: {outportVirt.closed}")
-	print(f"{multiPorts} closed: {multiPorts}")
+	print_debug(f"{outport.name} closed: {outport.closed}")
+	print_debug(f"{outportVirt.name} closed: {outportVirt.closed}")
+	#print_debug(f"{*multiPorts,.join(str(x) for x in a} closed: {multiPorts}")
+	for port in multiPorts:
+		print_debug(f"{port.name} closed: {port.closed}")
+
 	#sys.exit(0)
 
 
