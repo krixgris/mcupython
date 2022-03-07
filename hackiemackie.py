@@ -4,7 +4,6 @@
 import signal
 import sys
 import mido
-#from timeit import timeit
 from time import perf_counter
 import time
 from dataclasses import asdict, dataclass
@@ -130,24 +129,7 @@ def main()->None:
 	auto_bank = True if conf.AUTOBANK == 1 else False
 	banker = AutoBankHandler(auto_bank)
 
-
 	signal.signal(signal.SIGINT, quit_handler)
-	ping:bool = False
-	pong:bool = True
-
-	pingTrack:bool = False
-	pongTrack:bool = False
-
-	pingTime = 0
-	pingTimeTrack = 0
-	pongTimeout = 0.50 # if no response is received, pong is overriden, and logic can be performed if needed
-
-	queuedBank = False
-	bankingRunning = False
-	bankPrevDone = False
-	bankNextDone = False
-	bankDirectionNext = True # True = next, False = prev
-
 
 	debugMode:bool = True if conf.DEBUGMODE == 1 else False
 
@@ -171,6 +153,7 @@ def main()->None:
 
 	# dict for lookup/validation for mackie commands
 	MCDict = {x:x for x in MCKeys}
+	
 	print_debug("HackieMackie Starting...Ctrl-C to terminate.", debug = True)
 	# MAIN LOOP
 	#
@@ -221,26 +204,16 @@ def main()->None:
 			if(msg.type == 'sysex'):
 				if(banker.bank_ping and len(msg.data)>40):
 					print_debug(f"{port.name} Bank Pong!")
-					pong = True
 					banker.bank_pong = True
-					print_debug(f"Pong {pong} and Ping {ping} and QueuedBank {queuedBank}")
+					print_debug(f"Pong {banker.bank_pong} and Ping {banker.bank_ping} and QueuedBank {banker.bank_queued}")
 
 			if(msg.type == 'note_on' and msg.note in mcu.TrackLookup and msg.velocity == 127):
-				#outport.send(msg)
 				print_debug(f"Active track msg: {msg}")
-				pongTrack = True
-				pingTimeTrack = perf_counter()
 
-				# ping is pong for tracks...confusing
+				# ping is pong for tracks...confusing, but live with it
 				banker.track_send_ping()
 
 				print_debug(f"Pongstatus {port.name}: {banker.track_pong} for msg: {msg}")
-				#print_debug(f"Pongstatus: {pongTrack} for msg: {msg}")
-				# if(msg.velocity == 127):
-				# 	print_debug(f"Pingstatus: {pingTrack} for msg: {msg}")
-				# 	if(pingTrack):
-				# 		print_debug("Track Pong!")
-				# 		pongTrack = True
 
 
 				
@@ -298,7 +271,7 @@ def main()->None:
 				# should be banker.bank_stop
 				banker.bank_change_direction(reset = True)
 
-			elif(abs(now-pingTimeTrack) > pongTimeout):
+			elif(abs(now-banker.track_ping_time) > banker.pong_timeout):
 				print_debug(f"TRACK CHANGE: No Pong, track not in bank. Auto-bank needed:{now-banker.track_ping_time} seconds")
 				banker.track_reset()
 				#

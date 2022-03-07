@@ -11,7 +11,7 @@ class MidiConfig:
 	DAWOUTPUT:str = 'Midihub MH-2AX2PAE Port 2'
 
 	AUTOBANK:int = 1
-	DEBUGMODE:int = 1 # 1 - Debug mode, anything else will be interpreted as false
+	DEBUGMODE:int = 0 # 1 - Debug mode, anything else will be interpreted as false
 	
 	DEBUGINPUT:str = 'Arturia KeyStep 32'
 	DEBUGOUTPUT:str = 'Arturia KeyStep 32'
