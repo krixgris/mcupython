@@ -177,7 +177,7 @@ def main()->None:
 				print_debug(f"Debug msg sending: {msg}")
 				outportVirt.send(msg)
 			elif(msg.type == 'note_on' or msg.type=='note_off'):
-				if(int(msg.note) in MCDict):
+				if(int(msg.note) in MCDict and msg.type =='note_on'):
 					if(msg.type == 'note_on' and msg.velocity>40):
 						print_debug('toggles on')
 						msg.velocity = 127
@@ -189,7 +189,7 @@ def main()->None:
 						offMsg = mido.Message('note_on', channel = 0, note = msg.note, velocity=0)
 						primedMsg = offMsg.copy()
 						queuedDebug = True
-					print_debug("Primed msg: " + str(MCKeys(msg.note)) + " (" + str(msg.note) + ")" + " (Vel:" + str(msg.velocity) + ")")
+					print_debug("Primed msg: " + str(MCKeys(primedMsg.note)) + " (" + str(primedMsg.note) + ")" + " (Vel:" + str(primedMsg.velocity) + ")")
 			if(msg.type == 'control_change'):
 				if(msg.value==127 and msg.control==1 and queuedDebug):
 					print_debug("Sending:" + str(MCKeys(primedMsg.note)) + " (" + str(primedMsg.note) + ")" + " (Vel:" + str(primedMsg.velocity) + ")")
