@@ -5,8 +5,8 @@ import signal
 import sys
 import mido
 import atexit
+from datetime import datetime
 from time import perf_counter
-import time
 from dataclasses import asdict, dataclass
 from mackiekeys import MCKeys, MCTracks
 import mackiecontrol
@@ -14,11 +14,13 @@ import mackiecontrol
 from midiconfig import MidiConfig as conf
 
 def timestamp(nobrackets = False):
-	t = time.localtime()
+	#t = time.localtime()
+	t = datetime.now()
 	if(nobrackets):
-		current_time = time.strftime("%H:%M:%S", t)
+		current_time = t.strftime("%H:%M:%S.%f")
 	else:
-		current_time = time.strftime("[%H:%M:%S]: ", t)
+		current_time = t.strftime("[%H:%M:%S.%f]: ")
+	
 	return current_time
 
 def print_debug(text:str,print_time=True, debug:bool=False):
@@ -28,23 +30,12 @@ def print_debug(text:str,print_time=True, debug:bool=False):
 			text = f"{timestamp()}{text}"
 		print(text)
 
-def close_and_quit(outport, outportVirt, multiPorts):
-	
+#def close_and_quit(outport, outportVirt, multiPorts):
+def close_ports(*ports):
 	print_debug(f"Cleaning up...closing ports...")
-	print_debug(f"Closing outputs: {outport.name}, {outportVirt.name}")
-	print_debug(f"Closing inputs: {''.join(port.name for port in multiPorts)}")
-	outport.close()
-	outportVirt.close()
-	for port in multiPorts:
+	for port in ports:
 		port.close()
-	
-	print_debug(f"{outport.name} closed: {outport.closed}")
-	print_debug(f"{outportVirt.name} closed: {outportVirt.closed}")
-	#print_debug(f"{*multiPorts,.join(str(x) for x in a} closed: {multiPorts}")
-	for port in multiPorts:
 		print_debug(f"{port.name} closed: {port.closed}")
-
-	#sys.exit(0)
 
 
 @dataclass
@@ -123,29 +114,28 @@ class AutoBankHandler:
 		self.track_pong = False
 		self.track_ping_time = 0
 
-def validateMidiPorts(configPorts, availablePorts):
+def validateMidiPorts(configPorts, availablePorts, type:str="Port"):
 	availablePorts = list(set(availablePorts))
 	incorrect_ports = [port for port in configPorts if port not in availablePorts]
 	if(len(incorrect_ports)>0):
 		print_debug(
-				f"Ports not found:\n{incorrect_ports}\n"
-				f"Available ports:\n{availablePorts}\n"
+				f"{type} port(s) not found:\n{incorrect_ports}\n"
+				f"Available {type} port(s):\n{availablePorts}\n"
 				f"HackieMackie Terminating...Check configuration and restart.")
 		sys.exit(0)
 	else:
-		print_debug(f"Ports found. Setting up MIDI connections for {configPorts}")
+		#print_debug(f"{*multiPorts,.join(str(x) for x in a} closed: {multiPorts}")
+		print_debug(f"Setting up MIDI connections for {type.lower()} port(s):  {', '.join(port for port in configPorts)}")
 
 @dataclass
 class Midi:
 	pass
 
 def quit_handler(sig, frame):
-	print_debug("\nCtrl-C pressed", debug = True)
+	print(f"")
+	print_debug("Ctrl-C pressed", debug = True)
 	print_debug("HackieMackie Terminating...", debug = True)
 	sys.exit(0)
-
-	
-
 
 def main()->None:
 	mcu = mackiecontrol.MackieControl()
@@ -162,8 +152,8 @@ def main()->None:
 	midiOutputs = [conf.HWOUTPUT, conf.DAWOUTPUT]
 
 	# tuples might be a better idea, to keep this as one single call
-	validateMidiPorts(midiInputs, mido.get_input_names())
-	validateMidiPorts(midiOutputs, mido.get_output_names())
+	validateMidiPorts(midiInputs, mido.get_input_names(), type="Input")
+	validateMidiPorts(midiOutputs, mido.get_output_names(), type="Output")
 
 	if(debugMode):
 		print_debug(f"Debug mode enabled, using device {conf.DEBUGINPUT} as debug input.")
@@ -177,7 +167,7 @@ def main()->None:
 	# dict for lookup/validation for mackie commands
 	MCDict = {x:x for x in MCKeys}
 	
-	atexit.register(close_and_quit,outport, outportVirt, multiPorts)
+	atexit.register(close_ports,outport, outportVirt, *multiPorts)
 
 	print_debug("HackieMackie Starting...Ctrl-C to terminate.", debug = True)
 	# MAIN LOOP
@@ -304,24 +294,16 @@ def main()->None:
 					pass
 				else:
 					banker.bank_search()
-					# should be method
-					# banker.bank_queued = True
-					# banker.bank_running = True
-					# banker.bank_direction = 0
 				
 				banker.bank_queued = True
-				
-				
-				# bankingRunning = True
 		
 		# PING PONG Logic
 		
-		if(banker.bank_queued and banker.auto_bank):#should check only for auto_bank mode but for debug, nope
+		if(banker.bank_queued and banker.auto_bank):
 			banker.bank_queued = False
 			banker.bank_send_ping()
 			now=perf_counter()
 
-			#	logic to figure out direction here
 			print_debug(f"In banker with status running: {banker.bank_running}")
 			print_debug(banker.bank_messages[banker.bank_direction])
 			outportVirt.send(banker.bank_messages[banker.bank_direction].onMsg)
