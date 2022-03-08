@@ -16,23 +16,24 @@ from midiconfig import MidiConfig as conf
 def timestamp(nobrackets = False):
 	#t = time.localtime()
 	t = datetime.now()
-	if(nobrackets):
-		current_time = t.strftime("%H:%M:%S.%f")
-	else:
-		current_time = t.strftime("[%H:%M:%S.%f]: ")
+	formatStr = "%H:%M:%S"
+	if(debug_mode):
+		formatStr += ".%f"
+	if(not nobrackets):
+		formatStr = f"[{formatStr}]: "
+	current_time = t.strftime(f"{formatStr}")
 	
 	return current_time
 
-def print_debug(text:str,print_time=True, debug:bool=False):
-	debug_mode =True if conf.DEBUGMODE == 1 else False
-	if(debug_mode or debug):
+def print_debug(text:str,print_time=True, override_debug:bool=False):
+	if(debug_mode or override_debug):
 		if(print_time):
 			text = f"{timestamp()}{text}"
 		print(text)
 
 #def close_and_quit(outport, outportVirt, multiPorts):
 def close_ports(*ports):
-	print_debug(f"Cleaning up...closing ports...")
+	print_debug(f"Cleaning up...closing ports...", override_debug=True)
 	for port in ports:
 		port.close()
 		print_debug(f"{port.name} closed: {port.closed}")
@@ -85,7 +86,6 @@ class AutoBankHandler:
 		self.bank_queued = True
 		self.bank_running = True
 		self.bank_direction = 0
-
 		print_debug(f"Bank searching started...")
 		pass
 	def bank_found(self):
@@ -124,7 +124,6 @@ def validateMidiPorts(configPorts, availablePorts, type:str="Port"):
 				f"HackieMackie Terminating...Check configuration and restart.")
 		sys.exit(0)
 	else:
-		#print_debug(f"{*multiPorts,.join(str(x) for x in a} closed: {multiPorts}")
 		print_debug(f"Setting up MIDI connections for {type.lower()} port(s):  {', '.join(port for port in configPorts)}")
 
 @dataclass
@@ -133,29 +132,61 @@ class Midi:
 
 def quit_handler(sig, frame):
 	print(f"")
-	print_debug("Ctrl-C pressed", debug = True)
-	print_debug("HackieMackie Terminating...", debug = True)
+	print_debug("Ctrl-C pressed", override_debug = True)
+	print_debug("HackieMackie Terminating...", override_debug = True)
 	sys.exit(0)
 
-def main()->None:
-	mcu = mackiecontrol.MackieControl()
-	auto_bank = True if conf.AUTOBANK == 1 else False
-	banker = AutoBankHandler(auto_bank)
+def main(*args)->None:
+
+	global debug_mode
 
 	signal.signal(signal.SIGINT, quit_handler)
-
-	debugMode:bool = True if conf.DEBUGMODE == 1 else False
+	auto_bank = True if conf.AUTOBANK == 1 else False
+	debug_mode = True if conf.DEBUGMODE == 1 else False
+	#debugMode:bool = True if conf.DEBUGMODE == 1 else False
 
 	midiInputs = [conf.HWINPUT, conf.DAWINPUT]
-	if(debugMode):
-		midiInputs.append(conf.DEBUGINPUT)
 	midiOutputs = [conf.HWOUTPUT, conf.DAWOUTPUT]
+
+	for arg in args:
+		k = arg.split("=")[0].lower()
+		v = arg.split("=")[1].lower()
+		if(k == "debug"):
+			if(v in ['false','0','off']):
+				debug_mode = False
+			elif(v in ['true','1','on','debug']):
+				debug_mode = True
+			else:
+				print(f"Incorrect value sent for {k}. Parameter ignored.")
+		if(k == "autobank"):
+			if(v in ['false','0','off']):
+				auto_bank = False
+			elif(v in ['true','1','on','auto_bank','auto']):
+				auto_bank = True
+
+			else:
+				print(f"Incorrect value sent for {k}. Parameter ignored.")
+		else:
+			print(f"Unhandled argument passed: {k}. Parameter ignored.")
+
+	if(debug_mode):
+		midiInputs.append(conf.DEBUGINPUT)
+
+	if(auto_bank):
+		print_debug(f"Auto-Bank Enabled", override_debug=True)
+	else:
+		print_debug(f"Auto-Bank Disabled", override_debug=True)
+
+	mcu = mackiecontrol.MackieControl()
+	banker = AutoBankHandler(auto_bank)
+
+
 
 	# tuples might be a better idea, to keep this as one single call
 	validateMidiPorts(midiInputs, mido.get_input_names(), type="Input")
 	validateMidiPorts(midiOutputs, mido.get_output_names(), type="Output")
 
-	if(debugMode):
+	if(debug_mode):
 		print_debug(f"Debug mode enabled, using device {conf.DEBUGINPUT} as debug input.")
 		print_debug(f"Mackie Command wont get sent until Modwheel cc 127 is sent from debug to confirm.")
 
@@ -169,7 +200,7 @@ def main()->None:
 	
 	atexit.register(close_ports,outport, outportVirt, *multiPorts)
 
-	print_debug("HackieMackie Starting...Ctrl-C to terminate.", debug = True)
+	print_debug("HackieMackie Starting...Ctrl-C to terminate.", override_debug = True)
 	# MAIN LOOP
 	#
 	for port, msg in mido.ports.multi_receive(multiPorts, yield_ports=True, block=True):
@@ -315,4 +346,13 @@ def main()->None:
 
 
 if __name__ == "__main__":
-    main()
+
+	# if len(sys.argv) < 3:
+	# 	raise SyntaxError("Insufficient arguments.")
+	# if len(sys.argv) != 3:
+	# 	# If there are keyword arguments
+	# 	main(sys.argv[1], sys.argv[2], *sys.argv[3:])
+	# else:
+	# 	# If there are no keyword arguments
+	# 	main(sys.argv[1], sys.argv[2])
+	main(*sys.argv[1:])
