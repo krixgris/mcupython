@@ -1,6 +1,8 @@
 #hackiemackie.py
 #
 #	main program file
+from email.mime import multipart
+from operator import truediv
 import signal
 import sys
 import mido
@@ -42,6 +44,8 @@ def close_ports(*ports):
 @dataclass
 class AutoBankHandler:
 	"""Handles banking and track switching attributes"""
+	wait_for_sysex = False
+
 	auto_bank:bool
 	pong_timeout = 0.150 # shared timeout length between track and banks
 
@@ -119,22 +123,118 @@ def validateMidiPorts(configPorts, availablePorts, type:str="Port"):
 	incorrect_ports = [port for port in configPorts if port not in availablePorts]
 	if(len(incorrect_ports)>0):
 		print_debug(
-				f"{type} port(s) not found:\n{incorrect_ports}\n"
-				f"Available {type} port(s):\n{availablePorts}\n"
-				f"HackieMackie Terminating...Check configuration and restart.")
+				f"{type} port(s) not found:\n{', '.join(port for port in incorrect_ports)}\n"
+				f"Available {type} port(s):\n{', '.join(port for port in availablePorts)}\n"
+				f"HackieMackie Terminating...Check configuration and restart.",override_debug=True)
 		sys.exit(0)
 	else:
-		print_debug(f"Setting up MIDI connections for {type.lower()} port(s):  {', '.join(port for port in configPorts)}")
+		print_debug(f"Setting up MIDI connections for {type.lower()} port(s):  {', '.join(port for port in configPorts)}",True)
 
-@dataclass
-class Midi:
-	pass
 
 def quit_handler(sig, frame):
 	print(f"")
 	print_debug("Ctrl-C pressed", override_debug = True)
 	print_debug("HackieMackie Terminating...", override_debug = True)
 	sys.exit(0)
+
+def sysex_text_decode(sysex_hex_str, offset_pos=0, len=-1)->str:
+	dehexify = [s for s in sysex_hex_str[20+offset_pos:].split(' ')]
+	count = 0
+	for i in dehexify:
+		count+=1
+	if(count+2<len):
+		len = -1
+	if(count < 3):
+		return ""
+
+	_,*dehexify,_ = dehexify
+
+	dehexify = dehexify[:len]
+	# print(f"{dehexify}")
+	word = [bytes.fromhex(s).decode('utf-8') for s in dehexify]
+	# print(f"{}")
+	return ''.join(word)
+
+
+
+def CreateSetDisplaySysex(TextToConvert,Row=0, Page=0):
+	#first 6 defines stuff
+	#data=(0,0,102,20,18, <-- means set display
+	#6th byte defines position
+	#00 is first row, first page
+	#56 is second row, first page
+	#63 is second, second
+	#+7 for each page
+	#rowNo*56*pageNo*7 with 0 as first row, 0 as first page
+
+	pos = Row*56+Page*7
+
+	dataArray = [0,0,102,20,18,pos]
+	TextToConvert += "       "
+	TextToConvert = TextToConvert[0:7]
+
+	for s in TextToConvert:
+		dataArray.append(ord(s))
+
+	print(dataArray)
+
+	return(dataArray)
+
+def long_sysex_message(*text):
+	#first 6 defines stuff
+	#data=(0,0,102,20,18, <-- means set display
+	#6th byte defines position
+	#00 is first row, first page
+	#56 is second row, first page
+	#63 is second, second
+	#+7 for each page
+	#rowNo*56*pageNo*7 with 0 as first row, 0 as first page
+	dataArray = [0,0,102,20,18,0]
+	
+	blank_text = ""
+	for i in range(112):
+		blank_text += " "
+	row1,*row2 = text
+	row1 = ''.join(row1)
+	text = ""
+	if(len(row2) == 0):
+		if(len(row1)<8):
+			row1 += "         "
+			row1 = row1[0:7]
+			for i in range(7):
+				row1 += row1[0:7]
+		text = row1 + blank_text
+		print("1 row sent")
+	else:
+		row2 = ''.join(row2[0])
+		if(len(row1)<8 and len(row2)<8):
+			row1 += "         "
+			row2 += "         "
+			row1 = row1[0:7]
+			row2 = row2[0:7]
+			for i in range(7):
+				row1 += row1[0:7]
+				row2 += row2[0:7]
+		text = row1 + blank_text
+		text = text[0:56] + row2 + blank_text
+		print("2 rows sent")
+	# text += blank_text
+	text = text[:112]
+	print(len(text))
+
+	for s in text:
+		dataArray.append(ord(s))
+
+	print(dataArray)
+
+	return(dataArray)
+
+
+def sysex_mido_message(sysex_data):
+	return mido.Message('sysex', data=sysex_data)
+
+def send_sysex(outport, sysexdata):
+	outport.send(sysex_mido_message(sysexdata))
 
 def main(*args)->None:
 
@@ -143,7 +243,6 @@ def main(*args)->None:
 	signal.signal(signal.SIGINT, quit_handler)
 	auto_bank = True if conf.AUTOBANK == 1 else False
 	debug_mode = True if conf.DEBUGMODE == 1 else False
-	#debugMode:bool = True if conf.DEBUGMODE == 1 else False
 
 	midiInputs = [conf.HWINPUT, conf.DAWINPUT]
 	midiOutputs = [conf.HWOUTPUT, conf.DAWOUTPUT]
@@ -158,7 +257,7 @@ def main(*args)->None:
 				debug_mode = True
 			else:
 				print(f"Incorrect value sent for {k}. Parameter ignored.")
-		if(k == "autobank"):
+		elif(k == "autobank"):
 			if(v in ['false','0','off']):
 				auto_bank = False
 			elif(v in ['true','1','on','auto_bank','auto']):
@@ -211,12 +310,24 @@ def main(*args)->None:
 				msg.channel = 0
 				print_debug(f"Debugcommand {msg.note}")
 				if(msg.note == 118):
-					msg.note = MCKeys.PREVBANK #for now while testing ping pong
-				if(msg.note == 119):
-					banker.bank_direction = 0
-				if(msg.note == 120):
-					banker.bank_direction = 1
-				if(msg.note in [MCKeys.PREVBANK,MCKeys.NEXTBANK]):	
+					# newMsg = SysexMidoMessage(CreateSetDisplaySysex("Auto",0,0))
+					# newMsg = SysexMidoMessage(CreateSetDisplaySysex("Bank",1,0))
+					#outport.send(mackiecontrol.MackieButton(MCKeys.TRACK_1).onMsg)
+					outport.send(sysex_mido_message(long_sysex_message(f"{msg.note}",f"{msg.type}")))
+					#msg = SysexMidoMessage(CreateSetDisplaySysex("Send this back",1,0))
+					#msg.note = MCKeys.PREVBANK #for now while testing ping pong
+					# multiPorts.append((port,msg))
+					#multiPorts.insert(0,(port,newMsg))
+				elif(msg.note == 119):
+					#banker.bank_direction = 0
+					msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_PANS).onMsg
+					pass
+				elif(msg.note == 120):
+					#banker.bank_direction = 1
+					msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
+					banker.wait_for_sysex = True
+					pass
+				elif(msg.note in [MCKeys.PREVBANK,MCKeys.NEXTBANK]):	
 					banker.bank_send_ping()
 
 
@@ -248,6 +359,14 @@ def main(*args)->None:
 		# VIRTUAL INPUT
 		if(port.name == conf.DAWINPUT):
 			if(msg.type == 'sysex'):
+				if(debug_mode):
+					#print(f"Full: {sysex_text_decode(msg.hex())}")
+					if(banker.wait_for_sysex):
+						print(f"Track Name: {sysex_text_decode(msg.hex(),48,29)}")
+						# nameMsg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_PANS).onMsg
+						# outportVirt.send(nameMsg)
+						banker.wait_for_sysex = False
+
 				if(banker.bank_ping and len(msg.data)>40):
 					print_debug(f"{port.name} Bank Pong!")
 					banker.bank_pong = True
@@ -308,6 +427,9 @@ def main(*args)->None:
 
 		if(banker.track_ping):
 			now = perf_counter()
+			# nameMsg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
+			# banker.wait_for_sysex = True
+			# outportVirt.send(nameMsg)
 			if(banker.track_pong):
 				print_debug(f"TRACK CHANGE Ping pong:{now-banker.track_ping_time} seconds")
 				banker.track_reset()

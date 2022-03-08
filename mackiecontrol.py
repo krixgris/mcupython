@@ -19,15 +19,6 @@ from mackiekeys import MCKeys, MCTracks, MCTracksFaderCH, MCTracksVPotCC
 #	MCU always sends Note 54 for Edit (D#2 or D#3 depending on daw middle C)
 #	as well as Note 74,75 (D4 and D#4 to get automation RW settings, as they're not stored per track)
 
-@dataclass
-class MCMidiMessage:
-	def NoteOn(self):
-		pass
-	# simpler init for mackie message that are dead simple
-	# note_on = velocity 127
-	# note_off = velocity 0
-	# channel = 0
-	pass
 
 @unique
 class MidiType(Enum):
@@ -45,14 +36,6 @@ class MCType(Enum):
 	cc = auto()
 	pitch = auto()
 	sysex = auto()
-
-class MackieNote(mido.Message):
-	# not really used, should be removed
-	Msg: mido.Message
-	def On(self)->mido.Message:
-		return mido.Message(type='note_on', note=self.note, channel=self.channel, velocity=127)
-	def Off(self)->mido.Message:
-		return mido.Message(type='note_off', note=self.note, channel=self.channel, velocity=0)
 
 @dataclass
 class MackieCommand(ABC):
@@ -231,5 +214,4 @@ class MackieControl:
 		pass
 
 	def __post_init__(self):
-		#self.TrackLookup = {self.Tracks[i].key:i for i in range(len(MCTracks))}
 		self.TrackLookup = {t.key:t.trackindex for t in self.Tracks}
