@@ -46,6 +46,8 @@ class AutoBankHandler:
 	"""Handles banking and track switching attributes"""
 	wait_for_sysex = False
 	wait_for_sysex_queued = False
+	wait_for_sysex_reset = False
+
 	wait_for_sysex_count = 0
 
 	auto_bank:bool
@@ -190,11 +192,6 @@ def long_sysex_message(*text):
 	#first 6 defines stuff
 	#data=(0,0,102,20,18, <-- means set display
 	#6th byte defines position
-	#00 is first row, first page
-	#56 is second row, first page
-	#63 is second, second
-	#+7 for each page
-	#rowNo*56*pageNo*7 with 0 as first row, 0 as first page
 	dataArray = [0,0,102,20,18,0]
 	
 	blank_text = ""
@@ -210,7 +207,6 @@ def long_sysex_message(*text):
 			for i in range(7):
 				row1 += row1[0:7]
 		text = row1 + blank_text
-		#print("1 row sent")
 	else:
 		row2 = ''.join(row2[0])
 		if(len(row1)<8 and len(row2)<8):
@@ -223,15 +219,10 @@ def long_sysex_message(*text):
 				row2 += row2[0:7]
 		text = row1 + blank_text
 		text = text[0:56] + row2 + blank_text
-		#rint("2 rows sent")
-	# text += blank_text
 	text = text[:112]
-	#print(len(text))
 
 	for s in text:
 		dataArray.append(ord(s))
-
-	#print(dataArray)
 
 	return(dataArray)
 
@@ -339,10 +330,13 @@ def main(*args)->None:
 				elif(msg.note == 119):
 					#banker.bank_direction = 0
 					msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_PANS).onMsg
+					print(f"Stopping - {banker.wait_for_sysex_count=}")
+					
 					pass
 				elif(msg.note == 120):
 					#banker.bank_direction = 1
 					msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
+					banker.wait_for_sysex_count = 0
 					banker.wait_for_sysex = True
 					banker.wait_for_sysex_queued = True
 					pass
@@ -381,11 +375,21 @@ def main(*args)->None:
 				if(debug_mode):
 					print(f"Full sysex: {sysex_text_decode(msg.hex())}")
 				if(banker.wait_for_sysex):
-					
+					# rough code to return to pan mode
+					#
+					# count how many sysex we receive until we are fully reset after this
+					# so far we end up inside this loop with count 1, so it gets here instantly, as it's also first row of sysex
+					# after this we know for sure there is 1 row of bottom row for EQ mode, and then we should expect 2 more rows of pan
+					#
+					# once counter hits 4 sysex we should be back to normal. this gets messed up if daw sends stuff inbetween..
+					# might be able to fail safe it
+					# 
+					banker.wait_for_sysex_count += 1
 					print(f"Track Name: {sysex_text_decode(msg.hex(),48,29)}, {banker.wait_for_sysex_count=}")
 					nameMsg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_PANS).onMsg
 					outportVirt.send(nameMsg)
 					banker.wait_for_sysex = False
+					banker.wait_for_sysex_reset = True
 
 				if(banker.bank_ping and len(msg.data)>40):
 					print_debug(f"{port.name} Bank Pong!")
@@ -449,6 +453,8 @@ def main(*args)->None:
 		if(banker.track_ping):
 			now = perf_counter()
 			if(banker.track_pong):
+				
+				# rough code to trigger name lookup
 				name_msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
 				banker.wait_for_sysex = True
 				banker.wait_for_sysex_queued = True
