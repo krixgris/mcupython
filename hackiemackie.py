@@ -45,12 +45,14 @@ def close_ports(*ports):
 class AutoBankHandler:
 	"""Handles banking and track switching attributes"""
 	wait_for_sysex = False
+	wait_for_sysex_queued = False
 
 	auto_bank:bool
 	pong_timeout = 0.150 # shared timeout length between track and banks
 
 	bank_queued = False
 	bank_running = False
+	bank_first_run = False
 	_bank_direction:int = 0 # 0 = PREV, any other integer is NEXT
 	
 	bank_messages = (mackiecontrol.MackieButton(MCKeys.PREVBANK),mackiecontrol.MackieButton(MCKeys.NEXTBANK))
@@ -86,10 +88,12 @@ class AutoBankHandler:
 
 	def bank_search(self):
 		"""Logic for starting search mode"""
+		self.bank_first_run = True
 		self.bank_search_time = perf_counter()
 		self.bank_queued = True
 		self.bank_running = True
 		self.bank_direction = 0
+		#self._bank_direction = -1
 		print_debug(f"Bank searching started...")
 		pass
 	def bank_found(self):
@@ -98,6 +102,7 @@ class AutoBankHandler:
 		print_debug(f"Bank found! {now-self.bank_search_time} seconds")
 		self.bank_running = False
 		self.bank_queued = False
+		self.bank_first_run = False
 
 	def bank_send_ping(self):
 		self.bank_ping = True
@@ -204,7 +209,7 @@ def long_sysex_message(*text):
 			for i in range(7):
 				row1 += row1[0:7]
 		text = row1 + blank_text
-		print("1 row sent")
+		#print("1 row sent")
 	else:
 		row2 = ''.join(row2[0])
 		if(len(row1)<8 and len(row2)<8):
@@ -217,15 +222,15 @@ def long_sysex_message(*text):
 				row2 += row2[0:7]
 		text = row1 + blank_text
 		text = text[0:56] + row2 + blank_text
-		print("2 rows sent")
+		#rint("2 rows sent")
 	# text += blank_text
 	text = text[:112]
-	print(len(text))
+	#print(len(text))
 
 	for s in text:
 		dataArray.append(ord(s))
 
-	print(dataArray)
+	#print(dataArray)
 
 	return(dataArray)
 
@@ -300,6 +305,10 @@ def main(*args)->None:
 	atexit.register(close_ports,outport, outportVirt, *multiPorts)
 
 	print_debug("HackieMackie Starting...Ctrl-C to terminate.", override_debug = True)
+	#
+	# updates display on controller, this may or may not work for various controllers. will need testing i guess
+	# useful to see if app started
+	outport.send(sysex_mido_message(long_sysex_message("Started",f"{timestamp(1)[0:5]}")))
 	# MAIN LOOP
 	#
 	for port, msg in mido.ports.multi_receive(multiPorts, yield_ports=True, block=True):
@@ -326,6 +335,7 @@ def main(*args)->None:
 					#banker.bank_direction = 1
 					msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
 					banker.wait_for_sysex = True
+					banker.wait_for_sysex_queued = True
 					pass
 				elif(msg.note in [MCKeys.PREVBANK,MCKeys.NEXTBANK]):	
 					banker.bank_send_ping()
@@ -360,12 +370,12 @@ def main(*args)->None:
 		if(port.name == conf.DAWINPUT):
 			if(msg.type == 'sysex'):
 				if(debug_mode):
-					#print(f"Full: {sysex_text_decode(msg.hex())}")
-					if(banker.wait_for_sysex):
-						print(f"Track Name: {sysex_text_decode(msg.hex(),48,29)}")
-						# nameMsg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_PANS).onMsg
-						# outportVirt.send(nameMsg)
-						banker.wait_for_sysex = False
+					print(f"Full sysex: {sysex_text_decode(msg.hex())}")
+				if(banker.wait_for_sysex):
+					print(f"Track Name: {sysex_text_decode(msg.hex(),48,29)}")
+					nameMsg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_PANS).onMsg
+					outportVirt.send(nameMsg)
+					banker.wait_for_sysex = False
 
 				if(banker.bank_ping and len(msg.data)>40):
 					print_debug(f"{port.name} Bank Pong!")
@@ -411,6 +421,7 @@ def main(*args)->None:
 				print_debug(f"BANK CHANGE Ping pong:{now-banker.bank_ping_time} seconds")
 				banker.bank_reset()
 				banker.track_ping = True
+
 			elif(abs(now-banker.bank_ping_time) > banker.pong_timeout):
 				print_debug(f"BANK CHANGE: No Pong, end of bank list?:{now-banker.bank_ping_time} seconds")
 				banker.bank_reset()
@@ -427,10 +438,12 @@ def main(*args)->None:
 
 		if(banker.track_ping):
 			now = perf_counter()
-			# nameMsg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
-			# banker.wait_for_sysex = True
-			# outportVirt.send(nameMsg)
 			if(banker.track_pong):
+				name_msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
+				banker.wait_for_sysex = True
+				banker.wait_for_sysex_queued = True
+				outportVirt.send(name_msg)
+
 				print_debug(f"TRACK CHANGE Ping pong:{now-banker.track_ping_time} seconds")
 				banker.track_reset()
 
@@ -440,6 +453,17 @@ def main(*args)->None:
 				banker.bank_change_direction(reset = True)
 
 			elif(abs(now-banker.track_ping_time) > banker.pong_timeout):
+				if(banker.wait_for_sysex):
+					print_debug(f"Can we try to get name here?")
+				else:
+					pass
+					# name_msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
+					# banker.wait_for_sysex = True
+					# banker.wait_for_sysex_queued = True
+					# outportVirt.send(name_msg)
+
+
+
 				print_debug(f"TRACK CHANGE: No Pong, track not in bank. Auto-bank needed:{now-banker.track_ping_time} seconds")
 				banker.track_reset()
 				#
@@ -447,6 +471,7 @@ def main(*args)->None:
 					pass
 				else:
 					banker.bank_search()
+
 				
 				banker.bank_queued = True
 		
@@ -459,8 +484,20 @@ def main(*args)->None:
 
 			print_debug(f"In banker with status running: {banker.bank_running}")
 			print_debug(banker.bank_messages[banker.bank_direction])
+			#algo idea.. bank once next, and then pick up normal logic
+			# if(banker.bank_first_run):
+			# 		outportVirt.send(banker.bank_messages[1].onMsg)
+			# 		banker.bank_first_run = False
+
+			# else:
+			# 		outportVirt.send(banker.bank_messages[banker.bank_direction].onMsg)
 			outportVirt.send(banker.bank_messages[banker.bank_direction].onMsg)
+			
 			banker.bank_time_since_bank = perf_counter()
+
+		if(banker.wait_for_sysex_queued):
+			banker.wait_for_sysex_queued = False
+
 
 		#
 		#	End of Midi loop
