@@ -46,6 +46,7 @@ class AutoBankHandler:
 	"""Handles banking and track switching attributes"""
 	wait_for_sysex = False
 	wait_for_sysex_queued = False
+	wait_for_sysex_count = 0
 
 	auto_bank:bool
 	pong_timeout = 0.150 # shared timeout length between track and banks
@@ -158,7 +159,7 @@ def sysex_text_decode(sysex_hex_str, offset_pos=0, len=-1)->str:
 	# print(f"{dehexify}")
 	word = [bytes.fromhex(s).decode('utf-8') for s in dehexify]
 	# print(f"{}")
-	return ''.join(word)
+	return ''.join(word).strip()
 
 
 
@@ -244,6 +245,7 @@ def send_sysex(outport, sysexdata):
 def main(*args)->None:
 
 	global debug_mode
+	debug_device_enabled = True
 
 	signal.signal(signal.SIGINT, quit_handler)
 	auto_bank = True if conf.AUTOBANK == 1 else False
@@ -270,10 +272,17 @@ def main(*args)->None:
 
 			else:
 				print(f"Incorrect value sent for {k}. Parameter ignored.")
+		elif(k == "debug_device_enabled"):
+				if(v in ['false','0','off']):
+					debug_device_enabled = False
+				elif(v in ['true','1','on','debug']):
+					debug_device_enabled = True
+				else:
+					print(f"Incorrect value sent for {k}. Parameter ignored.")
 		else:
 			print(f"Unhandled argument passed: {k}. Parameter ignored.")
 
-	if(debug_mode):
+	if(debug_mode and debug_device_enabled):
 		midiInputs.append(conf.DEBUGINPUT)
 
 	if(auto_bank):
@@ -372,7 +381,8 @@ def main(*args)->None:
 				if(debug_mode):
 					print(f"Full sysex: {sysex_text_decode(msg.hex())}")
 				if(banker.wait_for_sysex):
-					print(f"Track Name: {sysex_text_decode(msg.hex(),48,29)}")
+					
+					print(f"Track Name: {sysex_text_decode(msg.hex(),48,29)}, {banker.wait_for_sysex_count=}")
 					nameMsg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_PANS).onMsg
 					outportVirt.send(nameMsg)
 					banker.wait_for_sysex = False
@@ -380,7 +390,7 @@ def main(*args)->None:
 				if(banker.bank_ping and len(msg.data)>40):
 					print_debug(f"{port.name} Bank Pong!")
 					banker.bank_pong = True
-					print_debug(f"Pong {banker.bank_pong} and Ping {banker.bank_ping} and QueuedBank {banker.bank_queued}")
+					print_debug(f"Pong {banker.bank_pong} and Ping {banker.bank_ping} and QueuedBank {banker.bank_queued=}")
 
 			if(msg.type == 'note_on' and msg.note in mcu.TrackLookup and msg.velocity == 127):
 				print_debug(f"Active track msg: {msg}")
@@ -442,6 +452,7 @@ def main(*args)->None:
 				name_msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
 				banker.wait_for_sysex = True
 				banker.wait_for_sysex_queued = True
+				banker.wait_for_sysex_count = 0
 				outportVirt.send(name_msg)
 
 				print_debug(f"TRACK CHANGE Ping pong:{now-banker.track_ping_time} seconds")
@@ -455,13 +466,17 @@ def main(*args)->None:
 			elif(abs(now-banker.track_ping_time) > banker.pong_timeout):
 				if(banker.wait_for_sysex):
 					print_debug(f"Can we try to get name here?")
+
 				else:
 					pass
 					# name_msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
 					# banker.wait_for_sysex = True
 					# banker.wait_for_sysex_queued = True
 					# outportVirt.send(name_msg)
-
+				# name_msg = mackiecontrol.MackieButton(MCKeys.FADERBANKMODE_EQ).onMsg
+				# banker.wait_for_sysex = True
+				# banker.wait_for_sysex_queued = True
+				# outportVirt.send(name_msg)
 
 
 				print_debug(f"TRACK CHANGE: No Pong, track not in bank. Auto-bank needed:{now-banker.track_ping_time} seconds")
@@ -477,7 +492,7 @@ def main(*args)->None:
 		
 		# PING PONG Logic
 		
-		if(banker.bank_queued and banker.auto_bank):
+		if(banker.bank_queued and banker.auto_bank and not banker.wait_for_sysex_queued):
 			banker.bank_queued = False
 			banker.bank_send_ping()
 			now=perf_counter()
