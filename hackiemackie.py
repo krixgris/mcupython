@@ -311,7 +311,16 @@ def main(*args)->None:
 	outport.send(sysex_mido_message(long_sysex_message("Started",f"{timestamp(1)[0:5]}")))
 	# MAIN LOOP
 	#
-	for port, msg in mido.ports.multi_receive(multiPorts, yield_ports=True, block=True):
+	for port, msg, in mido.ports.multi_receive(multiPorts, yield_ports=True, block=True):
+
+		match(port):
+			case [conf.DEBUGINPUT]:
+				print_debug(f"Debug port")
+			case [conf.DAWINPUT]:
+				print_debug(f"DAW port")
+			case [conf.HWINPUT]:
+				print_debug(f"HW port")
+
 		# DEBUG INPUT
 		if(port.name == conf.DEBUGINPUT):
 			if(msg.type == 'note_on' and msg.note in [118,119,120]):
