@@ -15,6 +15,22 @@ import mackiecontrol
 
 from midiconfig import MidiConfig as conf
 
+def midi_test(msg:mido.Message)->None:
+	"""From test debug environment, start of moving to structural patteren matching new with py3.10"""
+	match(msg):
+		case mido.messages.messages.Message(note=mValue):
+			print(f"type is note message {mValue}")
+			# mValue is local to this scope, as it is just bound to mValue 
+			# to use outside of match, you have to *assign* it to a variable
+		case mido.messages.messages.Message(type="sysex", data=_):
+			print(f"sysex")
+		case mido.messages.messages.Message(type="control_change"):
+			print(f"cc")
+		case other:
+			print(f"Other type...{other}")
+	#print(mValue)
+	return 
+
 def timestamp(nobrackets = False):
 	#t = time.localtime()
 	t = datetime.now()
