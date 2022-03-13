@@ -74,50 +74,20 @@ def validate_midi_config(filename, config_type_port:dict, type:str="Port")->bool
 	midi_inputs = list(set(midi_inputs))
 	midi_outputs = mido.get_output_names()
 	midi_outputs = list(set(midi_outputs))
-	#def validateMidiPorts(configPorts, availablePorts, type:str="Port"):
-	#midi_port_names = list(set(midi_port_names)) # aggregate dupes
+
 	midi_port_names = {"Input":midi_inputs, "Output":midi_outputs}
-	#print(midi_port_names)
-	#print(f"{midi_port_names["Input"]}")
-	#print(f"\n")
-	#print(f"{midi_port_names}")
-	#print(f"{config_type_port['Input']}")
+
 	for k in config_type_port:
-		# print(k)
-		# print(config_type_port[k])
 		mismatchedports = set(config_type_port[k])-set(midi_port_names[k])
 		#print(f"{mismatchedports=}, {len(mismatchedports)=}")
 		if(len(mismatchedports)>0):
 			ports_validated = False
 			print(f"Can't find {k} ports {list(mismatchedports)}..")
-	# match(config_type_port):
-	# 	case{'Input':list(l)} if l in midi_port_names["Input"]:
-	# 		print(i)
-	# 		print("folk")
-	# 	# case{"Output":l} if l in midi_port_names["Output"]:
-	# 	# 	print(o)
-	# 	case other:
-	# 		print(other)
-	# 		print("All bad and wrong")
 	if(not ports_validated):
 		write_midi_port_file(midi_inputs, midi_outputs)
 	return ports_validated
 
-	#incorrect_ports = [port for port in configPorts if port not in midi_port_names]
-	# if(len(incorrect_ports)>0):
-	# 	print(
-	# 			f"{type} port(s) not found:\n{', '.join(port for port in incorrect_ports)}\n"
-	# 			f"Available {type} port(s):\n{', '.join(port for port in midi_port_names)}\n"
-	# 			f"Check available_midi_devices.txt and verify settings are using a device the system can see.")
-	# 	write_midi_port_file(filename)
-	# 	return False
-	# else:
-	# 	print(f"Setting up MIDI connections for {type.lower()} port(s):  {', '.join(port for port in configPorts)}")
-	# 	return True
-	write_midi_port_file(midi_inputs, midi_outputs)
-
-def validate_config_file(filename="config.txt")->bool:
-	#filename = "config.txt"
+def validate_config_file(filename)->bool:
 	config = dict()
 	is_valid_conf = True
 	with open(filename) as f:
@@ -132,9 +102,7 @@ def validate_config_file(filename="config.txt")->bool:
 					config[k]=v.strip()
 				case other:
 					pass
-	#print(config)
 
-	#is_valid_conf = True
 	for c in CONFIG_PARAMETERS:
 		# print(config[c.name])
 		if c.name not in [k for k in config]:
@@ -145,11 +113,8 @@ def validate_config_file(filename="config.txt")->bool:
 	for conf in CONFIG_PARAMETERS:
 		i,*d = conf.value
 		match(d):
-			# case undef if str(undef) not in config[conf.name]:
-			# 	is_valid_conf = False
-			# 	print(f"{undef=}")
+
 			case [0|1] as d if str(d[0]) not in config[conf.name]:
-				#print(f"Invalid value for {conf.name=}: {d=} and {config[conf.name]=}, {type(d)=}")
 				is_valid_conf = False
 			case [0|1] as d:
 				pass
@@ -175,14 +140,13 @@ def validate_config_file(filename="config.txt")->bool:
 		midi_input_devices.append(config[str(CONFIG_PARAMETERS.DEBUG_DEVICE_MIDI_INPUT)])
 		midi_output_devices.append(	config[str(CONFIG_PARAMETERS.DEBUG_DEVICE_MIDI_OUTPUT)])
 
-	#is_valid_conf = validate_midi_config(midi_port_names=midi_input_device, midi_output_device=)
-
-	#print(midi_input_devices)
 	config_type_port = {"Input":midi_input_devices,"Output":midi_output_devices}
-	#is_valid_conf = validate_midi_config(filename, config_type_port)
+	is_valid_conf = validate_midi_config(filename, config_type_port)
 	if(is_valid_conf):
 		pass
 		#print(f"Configuration file valid.")
 	else:
 		print(f"Error: Configuration file invalid.")
 	return is_valid_conf
+
+	

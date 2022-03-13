@@ -32,6 +32,7 @@ MESSAGE_SEND_DEBUG_FULL = 4
 
 @dataclass
 class IOPorts:
+	open_ports = False
 	output = ""
 	output_virt = ""
 	multi_input:list = field(init=False)
