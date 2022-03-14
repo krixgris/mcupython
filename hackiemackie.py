@@ -669,4 +669,6 @@ if __name__ == "__main__":
 	# else:
 	# 	# If there are no keyword arguments
 	# 	main(sys.argv[1], sys.argv[2])
-	asyncio.run(main(*sys.argv[1:]))
+	pass
+
+	#asyncio.run(main(*sys.argv[1:]))

@@ -11,10 +11,11 @@ from time import perf_counter
 
 from hackiemackieutils import print_debug,UtilityConfig as setup
 import mcuconfigfile
+from mcuconfigfile import Configuration as conf
 import mido
 
 CONFIG_FILE = "config.txt"
-PORT_TIMEOUT = 2.0
+PORT_TIMEOUT = 3.0
 
 @dataclass
 class IOPorts:
@@ -48,23 +49,27 @@ def validate_config()->tuple():
 
 def load_config(filename,ports):
 	#async def connect_ports(ports, midi_ports):
-	time.sleep(1)
-	
-	port_names = ['IAC Driver HackieMackie IN',
-	'IAC Driver HackieMackie OUT',
-	'IAC Driver Streamdeck',
-	'Network ipad network']
+	#time.sleep(1)
+	mcuconfigfile.load_midiconfig()
+
 	print_debug(f"In connect...",1)
-	for p in port_names:
-		with mido.open_input(p) as port:
-			print_debug(f"Opening {port=}")
-			ports.multi_input.append(port)
-			print_debug(f"{port.name}, {port.closed=}",1)
+	print_debug(f"Opening ports..",1)
+	ports.output = mido.open_output(conf.midi_output_hw)
+	print_debug(f"{ports.output=}",1)
+	ports.output_virt = mido.open_output(conf.midi_output_daw)
+	print_debug(f"{ports.output_virt=}",1)
+	ports.multi_input = [mido.open_input(i) for i in conf.midi_input_devices]
+	print(ports.multi_input)
+	# for p in ports.multi_input:
+	# 	#ith mido.open_input(p) as port:
+	# 		#print_debug(f"Opening {port=}")
+	# 		#ports.multi_input.append(port)
+	# 	print_debug(f"{p.name}, {p.closed=}",1)
 	
 	print_debug(f"Connections open...",1)
-	time.sleep(4)
+	# time.sleep(4)
 	ports.open_ports = True
-	time.sleep(4)
+	#time.sleep(4)
 
 
 def check_time():
@@ -78,11 +83,12 @@ def quit_handler(sig, frame):
 	sys.exit(0)
 
 def close_ports(*ports):
-	print_debug(f"Cleaning up...closing ports...",2)
+	print_debug(f"{ports}")
+	print_debug(f"Cleaning up...closing ports...",1)
 	for port in ports:
-			print_debug(f"Closing {port=} ...",2)
+			print_debug(f"Closing {port=} ...",1)
 			port.close()
-			print_debug(f"{port.name} closed: {port.closed}",2)
+			print_debug(f"{port.name} closed: {port.closed}",1)
 	
 
 
@@ -94,14 +100,15 @@ def main(*args)->None:
 	ports = IOPorts()
 	# atexit.register(close_ports,ports.output, ports.output_virt, *ports.multi_input)
 	signal.signal(signal.SIGINT, quit_handler)
-	atexit.register(close_ports, *ports.multi_input)
+	# atexit.register(close_ports, ports.output, ports.output_virt,*ports.multi_input)
 	start = perf_counter()
 	# multithreading load to be able to kill the program if we can't open the portss we need
 	t = threading.Thread(target=load_config, args=(CONFIG_FILE,ports), daemon=True)
 	
-	# if(not validate_config()):
-	# 	print_debug(f"Configuration file not valid. Check settings.")
-	# 	return False
+	if(not validate_config()):
+		print_debug(f"Configuration file not valid. Check settings.")
+		return False
+	
 	# try:
 	# 	t.start()
 	# except(KeyboardInterrupt, SystemExit):
@@ -116,8 +123,31 @@ def main(*args)->None:
 		if(end >= PORT_TIMEOUT):
 			print_debug(f"It took too long to connect! {end}")
 			sys.exit(0)
-	print("Out of while")
 	t.join()
+
+	atexit.register(close_ports, ports.output, ports.output_virt,*ports.multi_input)
+
+	print("In loop..")
+
+	for port, msg, in mido.ports.multi_receive(ports.multi_input, yield_ports=True, block=True):
+		match(port):
+			case [conf.midi_input_debug]:
+				print_debug(f"Debug port",2)
+				print_debug(f"{msg}",2)
+			case [conf.midi_input_daw]:
+				print_debug(f"DAW port",2)
+			case [conf.midi_input_hw]:
+				print_debug(f"HW port",2)
+		match(msg):
+			case mido.messages.messages.Message(note=mValue):
+				print_debug(f"note({mValue}:{msg}",1)
+			case mido.messages.messages.Message(type="sysex", data=_):
+				print_debug(f"sysex:{msg}",1)
+			case mido.messages.messages.Message(type="control_change"):
+				print_debug(f"cc:{msg}",1)
+			case other:
+				pass
+				#print(f"Other type...{other}")
 	
 	#mcuconfigfile.create_empty_config(CONFIG_FILE,True)
 	pass

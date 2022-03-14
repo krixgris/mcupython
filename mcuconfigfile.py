@@ -6,6 +6,20 @@ from datetime import datetime
 from enum import Enum, auto, unique
 import mido
 
+class Configuration:
+	loaded = True
+	file_parameters:dict = dict()
+	debug_mode = 1
+	midi_input_devices = ""
+	midi_output_devices = ""
+	midi_output_daw = ""
+	midi_output_hw = ""
+	midi_input_hw = ""
+	midi_input_daw = ""
+	midi_input_debug = ""
+	midi_outport_hw = ""
+	midi_outport_daw = ""
+
 class CONFIG_PARAMETERS(Enum):
 	"""(ID,Defaultvalue)"""
 	AUTOBANK = (auto(),1)
@@ -143,10 +157,29 @@ def validate_config_file(filename)->bool:
 	config_type_port = {"Input":midi_input_devices,"Output":midi_output_devices}
 	is_valid_conf = validate_midi_config(filename, config_type_port)
 	if(is_valid_conf):
+		Configuration.file_parameters = config.copy()
 		pass
 		#print(f"Configuration file valid.")
 	else:
 		print(f"Error: Configuration file invalid.")
 	return is_valid_conf
 
-	
+def load_midiconfig():
+	Configuration.midi_input_devices = [Configuration.file_parameters[str(CONFIG_PARAMETERS.DAW_MIDI_INPUT)],
+						Configuration.file_parameters[str(CONFIG_PARAMETERS.HW_DEVICE_MIDI_INPUT)]]
+						
+	Configuration.midi_output_devices = [Configuration.file_parameters[str(CONFIG_PARAMETERS.DAW_MIDI_OUTPUT)],
+						Configuration.file_parameters[str(CONFIG_PARAMETERS.HW_DEVICE_MIDI_OUTPUT)]]
+
+	Configuration.midi_input_hw = Configuration.file_parameters[str(CONFIG_PARAMETERS.HW_DEVICE_MIDI_INPUT)]
+	Configuration.midi_input_daw = Configuration.file_parameters[str(CONFIG_PARAMETERS.DAW_MIDI_INPUT)]
+	Configuration.midi_input_debug = Configuration.file_parameters[str(CONFIG_PARAMETERS.DEBUG_DEVICE_MIDI_INPUT)]
+
+
+	Configuration.midi_output_daw = Configuration.file_parameters[str(CONFIG_PARAMETERS.DAW_MIDI_OUTPUT)]
+	Configuration.midi_output_hw = Configuration.file_parameters[str(CONFIG_PARAMETERS.HW_DEVICE_MIDI_OUTPUT)]
+
+	if(Configuration.file_parameters[str(CONFIG_PARAMETERS.ENABLE_DEBUG_DEVICE)] == 1):
+		Configuration.midi_input_devices.append(Configuration.file_parameters[str(CONFIG_PARAMETERS.DEBUG_DEVICE_MIDI_INPUT)])
+		Configuration.midi_output_devices.append(Configuration.file_parameters[str(CONFIG_PARAMETERS.DEBUG_DEVICE_MIDI_OUTPUT)])
+	pass
