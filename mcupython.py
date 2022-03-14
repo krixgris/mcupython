@@ -2,6 +2,7 @@
 #
 # new main file
 from dataclasses import dataclass, field
+from sqlite3 import connect
 import sys
 import signal
 import threading
@@ -16,6 +17,8 @@ import mido
 
 CONFIG_FILE = "config.txt"
 PORT_TIMEOUT = 3.0
+
+connection_barrier = threading.Barrier(parties=2, timeout=5.0)
 
 @dataclass
 class IOPorts:
@@ -48,28 +51,19 @@ def validate_config()->tuple():
 	return is_valid
 
 def load_config(filename,ports):
-	#async def connect_ports(ports, midi_ports):
-	#time.sleep(1)
 	mcuconfigfile.load_midiconfig()
 
-	print_debug(f"In connect...",1)
 	print_debug(f"Opening ports..",1)
 	ports.output = mido.open_output(conf.midi_output_hw)
 	print_debug(f"{ports.output=}",1)
 	ports.output_virt = mido.open_output(conf.midi_output_daw)
 	print_debug(f"{ports.output_virt=}",1)
 	ports.multi_input = [mido.open_input(i) for i in conf.midi_input_devices]
-	print(ports.multi_input)
-	# for p in ports.multi_input:
-	# 	#ith mido.open_input(p) as port:
-	# 		#print_debug(f"Opening {port=}")
-	# 		#ports.multi_input.append(port)
-	# 	print_debug(f"{p.name}, {p.closed=}",1)
+	print_debug(f"{ports.multi_input=}",1)
 	
+	connection_barrier.wait()
 	print_debug(f"Connections open...",1)
-	# time.sleep(4)
 	ports.open_ports = True
-	#time.sleep(4)
 
 
 def check_time():
@@ -82,11 +76,12 @@ def quit_handler(sig, frame):
 	print_debug("HackieMackie Terminating...", 1)
 	sys.exit(0)
 
+
 def close_ports(*ports):
-	print_debug(f"{ports}")
+	# print_debug(f"{ports}")
 	print_debug(f"Cleaning up...closing ports...",1)
 	for port in ports:
-			print_debug(f"Closing {port=} ...",1)
+			print_debug(f"Closing {port.name=}...",1)
 			port.close()
 			print_debug(f"{port.name} closed: {port.closed}",1)
 	
@@ -104,7 +99,8 @@ def main(*args)->None:
 	start = perf_counter()
 	# multithreading load to be able to kill the program if we can't open the portss we need
 	t = threading.Thread(target=load_config, args=(CONFIG_FILE,ports), daemon=True)
-	
+
+
 	if(not validate_config()):
 		print_debug(f"Configuration file not valid. Check settings.")
 		return False
@@ -114,37 +110,43 @@ def main(*args)->None:
 	# except(KeyboardInterrupt, SystemExit):
 	# 	print_debug("Thread aborted!")
 	# 	sys.exit()
-	t.start()
-	#print(ports.open_ports)
-	while(not ports.open_ports):
-		time.sleep(0.2)
-		#check_time()
-		end = time.perf_counter()-start
-		if(end >= PORT_TIMEOUT):
-			print_debug(f"It took too long to connect! {end}")
-			sys.exit(0)
-	t.join()
+	try:
+		t.start()
+	# #print(ports.open_ports)
+	# while(not ports.open_ports):
+	# 	time.sleep(0.2)
+	# 	#check_time()
+	# 	end = time.perf_counter()-start
+	# 	if(end >= PORT_TIMEOUT):
+	# 		print_debug(f"It took too long to connect! {end}")
+	# 		sys.exit(0)
+		connection_barrier.wait()
+	except threading.BrokenBarrierError as e:
+		connection_barrier.abort()
+		print_debug("MIDI port timed out...verify that devices are connected and try again...",1)
+		sys.exit(0)
+	# t.join()
 
 	atexit.register(close_ports, ports.output, ports.output_virt,*ports.multi_input)
 
-	print("In loop..")
+	print_debug("Waiting for MIDI... Press Ctrl-C to abort...", 1)
 
 	for port, msg, in mido.ports.multi_receive(ports.multi_input, yield_ports=True, block=True):
 		match(port):
 			case [conf.midi_input_debug]:
-				print_debug(f"Debug port",2)
-				print_debug(f"{msg}",2)
+				print_debug(f"Debug port",1)
+				print_debug(f"{msg}",1)
 			case [conf.midi_input_daw]:
-				print_debug(f"DAW port",2)
+				print_debug(f"DAW port",1)
 			case [conf.midi_input_hw]:
-				print_debug(f"HW port",2)
+				print_debug(f"HW port",1)
 		match(msg):
 			case mido.messages.messages.Message(note=mValue):
-				print_debug(f"note({mValue}:{msg}",1)
+				print_debug(f"{port.name}:note({mValue}:{msg}",1)
 			case mido.messages.messages.Message(type="sysex", data=_):
-				print_debug(f"sysex:{msg}",1)
+				print_debug(f"{port.name}:sysex:{msg}",1)
 			case mido.messages.messages.Message(type="control_change"):
-				print_debug(f"cc:{msg}",1)
+				print_debug(f"{port.name}:cc:{msg}",1)
 			case other:
 				pass
 				#print(f"Other type...{other}")
