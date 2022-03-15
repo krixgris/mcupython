@@ -165,6 +165,7 @@ def validate_config_file(filename)->bool:
 	return is_valid_conf
 
 def load_midiconfig():
+	print(f"{Configuration}")
 	Configuration.midi_input_devices = [Configuration.file_parameters[str(CONFIG_PARAMETERS.DAW_MIDI_INPUT)],
 						Configuration.file_parameters[str(CONFIG_PARAMETERS.HW_DEVICE_MIDI_INPUT)]]
 						

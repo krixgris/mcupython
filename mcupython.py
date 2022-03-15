@@ -6,9 +6,12 @@ from sqlite3 import connect
 import sys
 import signal
 import threading
+import concurrent.futures
+
 import atexit
 import time
 from time import perf_counter
+from tkinter import E
 
 from hackiemackieutils import print_debug,UtilityConfig as setup
 import mcuconfigfile
@@ -20,6 +23,7 @@ PORT_TIMEOUT = 3.0
 
 connection_barrier = threading.Barrier(parties=2, timeout=5.0)
 
+
 @dataclass
 class IOPorts:
 	open_ports = False
@@ -29,6 +33,8 @@ class IOPorts:
 
 	def __post_init__(self):
 		self.multi_input = []
+
+conf_ports = IOPorts()
 
 midi_ports_open = False
 
@@ -50,20 +56,31 @@ def validate_config()->tuple():
 
 	return is_valid
 
-def load_config(filename,ports):
-	mcuconfigfile.load_midiconfig()
-
+def load_config(filename,ports,midi_output_hw,midi_output_daw,midi_input_devices)->IOPorts:
+	# try:
+	# 	mcuconfigfile.load_midiconfig()
+	# except KeyError as e:
+	# 	print_debug(f"Config file broken..{e} not found.",1)
+		
+		# return False
+	#conf_ports = IOPorts()
 	print_debug(f"Opening ports..",1)
-	ports.output = mido.open_output(conf.midi_output_hw)
-	print_debug(f"{ports.output=}",1)
-	ports.output_virt = mido.open_output(conf.midi_output_daw)
-	print_debug(f"{ports.output_virt=}",1)
-	ports.multi_input = [mido.open_input(i) for i in conf.midi_input_devices]
-	print_debug(f"{ports.multi_input=}",1)
+	conf_ports.output = mido.open_output(midi_output_hw)
+	print_debug(f"{conf_ports.output=}",1)
+	conf_ports.output_virt = mido.open_output(midi_output_daw)
+	print_debug(f"{conf_ports.output_virt=}",1)
+	conf_ports.multi_input = [mido.open_input(i) for i in midi_input_devices]
+	print_debug(f"{conf_ports.multi_input=}",1)
 	
-	connection_barrier.wait()
+	# connection_barrier.wait()
+	time.sleep(1)
+	print_debug(f"{conf_ports=}")
 	print_debug(f"Connections open...",1)
-	ports.open_ports = True
+	conf_ports.open_ports = True
+
+	#return True
+	#return conf_ports
+	return True
 
 
 def check_time():
@@ -85,7 +102,11 @@ def close_ports(*ports):
 			port.close()
 			print_debug(f"{port.name} closed: {port.closed}",1)
 	
-
+def stop_process_pool(executor):
+	for pid, process in executor._processes.items():
+		process.terminate()
+	executor.shutdown()
+	sys.exit(0)
 
 def main(*args)->None:
 	"""Main sets up configuration with conf class"""
@@ -100,32 +121,60 @@ def main(*args)->None:
 	# multithreading load to be able to kill the program if we can't open the portss we need
 	t = threading.Thread(target=load_config, args=(CONFIG_FILE,ports), daemon=True)
 
-
+	
 	if(not validate_config()):
 		print_debug(f"Configuration file not valid. Check settings.")
 		return False
+	else:
+		print(f"{conf}")
+	try:
+		mcuconfigfile.load_midiconfig()
+	except KeyError as e:
+		print_debug(f"Config file broken..{e} not found.",1)
+	print(ports)
 	
+	# # try:
+	# # 	t.start()
+	# # except(KeyboardInterrupt, SystemExit):
+	# # 	print_debug("Thread aborted!")
+	# # 	sys.exit()
 	# try:
 	# 	t.start()
-	# except(KeyboardInterrupt, SystemExit):
-	# 	print_debug("Thread aborted!")
-	# 	sys.exit()
-	try:
-		t.start()
-	# #print(ports.open_ports)
-	# while(not ports.open_ports):
-	# 	time.sleep(0.2)
-	# 	#check_time()
-	# 	end = time.perf_counter()-start
-	# 	if(end >= PORT_TIMEOUT):
-	# 		print_debug(f"It took too long to connect! {end}")
-	# 		sys.exit(0)
-		connection_barrier.wait()
-	except threading.BrokenBarrierError as e:
-		connection_barrier.abort()
-		print_debug("MIDI port timed out...verify that devices are connected and try again...",1)
-		sys.exit(0)
-	# t.join()
+	# # #print(ports.open_ports)
+	# # while(not ports.open_ports):
+	# # 	time.sleep(0.2)
+	# # 	#check_time()
+	# # 	end = time.perf_counter()-start
+	# # 	if(end >= PORT_TIMEOUT):
+	# # 		print_debug(f"It took too long to connect! {end}")
+	# # 		sys.exit(0)
+	# 	connection_barrier.wait()
+	# except threading.BrokenBarrierError as e:
+	# 	connection_barrier.abort()
+	# 	print_debug("MIDI port timed out...verify that devices are connected and try again...",1)
+	# 	sys.exit(0)
+	# # t.join()
+	temp_conf = conf()
+
+	print(f"New temp conf:{temp_conf}")
+
+	with concurrent.futures.ProcessPoolExecutor() as executor:
+		#p = executor.submit(load_config, (CONFIG_FILE,ports))
+		try:
+			f = executor.submit(load_config, CONFIG_FILE, ports, conf.midi_output_hw, conf.midi_output_daw, conf.midi_input_devices)
+			#for future in concurrent.futures.as_completed(f,timeout=2):
+			#file_loaded = f.result(timeout=2)
+			f.result(timeout=2)
+			# if(not file_loaded):
+			# 	sys.exit(0)
+		except concurrent.futures._base.TimeoutError:
+			print("This took to long...")
+			stop_process_pool(executor)
+	ports = conf_ports
+	print(f"{ports=}")
+	print(f"{conf_ports=}")
+	# load_config(CONFIG_FILE,ports, conf)
+
 
 	atexit.register(close_ports, ports.output, ports.output_virt,*ports.multi_input)
 
