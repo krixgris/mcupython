@@ -56,7 +56,7 @@ def validate_config()->tuple():
 
 	return is_valid
 
-def load_config(filename,ports,midi_output_hw,midi_output_daw,midi_input_devices)->IOPorts:
+def load_config(filename,ports)->bool:
 	# try:
 	# 	mcuconfigfile.load_midiconfig()
 	# except KeyError as e:
@@ -65,18 +65,18 @@ def load_config(filename,ports,midi_output_hw,midi_output_daw,midi_input_devices
 		# return False
 	#conf_ports = IOPorts()
 	print_debug(f"Opening ports..",1)
-	conf_ports.output = mido.open_output(midi_output_hw)
-	print_debug(f"{conf_ports.output=}",1)
-	conf_ports.output_virt = mido.open_output(midi_output_daw)
-	print_debug(f"{conf_ports.output_virt=}",1)
-	conf_ports.multi_input = [mido.open_input(i) for i in midi_input_devices]
-	print_debug(f"{conf_ports.multi_input=}",1)
+	ports.output = mido.open_output(conf.midi_output_hw)
+	print_debug(f"{ports.output=}",1)
+	ports.output_virt = mido.open_output(conf.midi_output_daw)
+	print_debug(f"{ports.output_virt=}",1)
+	ports.multi_input = [mido.open_input(i) for i in conf.midi_input_devices]
+	print_debug(f"{ports.multi_input=}",1)
 	
 	# connection_barrier.wait()
 	time.sleep(1)
-	print_debug(f"{conf_ports=}")
+	print_debug(f"{ports=}")
 	print_debug(f"Connections open...",1)
-	conf_ports.open_ports = True
+	ports.open_ports = True
 
 	#return True
 	#return conf_ports
@@ -154,23 +154,24 @@ def main(*args)->None:
 	# 	print_debug("MIDI port timed out...verify that devices are connected and try again...",1)
 	# 	sys.exit(0)
 	# # t.join()
-	temp_conf = conf()
+	#temp_conf = conf()
 
-	print(f"New temp conf:{temp_conf}")
+	#print(f"New temp conf:{temp_conf}")
 
 	with concurrent.futures.ProcessPoolExecutor() as executor:
 		#p = executor.submit(load_config, (CONFIG_FILE,ports))
 		try:
-			f = executor.submit(load_config, CONFIG_FILE, ports, conf.midi_output_hw, conf.midi_output_daw, conf.midi_input_devices)
+			f = executor.submit(check_time)
 			#for future in concurrent.futures.as_completed(f,timeout=2):
 			#file_loaded = f.result(timeout=2)
+			load_config(CONFIG_FILE, ports)
 			f.result(timeout=2)
 			# if(not file_loaded):
 			# 	sys.exit(0)
 		except concurrent.futures._base.TimeoutError:
 			print("This took to long...")
 			stop_process_pool(executor)
-	ports = conf_ports
+	#ports = conf_ports
 	print(f"{ports=}")
 	print(f"{conf_ports=}")
 	# load_config(CONFIG_FILE,ports, conf)
