@@ -1,6 +1,7 @@
 #mcupython.py
 #
 # new main file
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from sqlite3 import connect
 import sys
@@ -57,19 +58,16 @@ def validate_config()->tuple():
 	return is_valid
 
 def load_config(filename,ports)->bool:
-	# try:
-	# 	mcuconfigfile.load_midiconfig()
-	# except KeyError as e:
-	# 	print_debug(f"Config file broken..{e} not found.",1)
-		
-		# return False
-	#conf_ports = IOPorts()
 	print_debug(f"Opening ports..",1)
 	ports.output = mido.open_output(conf.midi_output_hw)
 	print_debug(f"{ports.output=}",1)
 	ports.output_virt = mido.open_output(conf.midi_output_daw)
 	print_debug(f"{ports.output_virt=}",1)
-	ports.multi_input = [mido.open_input(i) for i in conf.midi_input_devices]
+	# for i in conf.midi_input_devices:
+	# 	time.sleep(0.1)
+	# 	ports.multi_input.append(mido.open_input(i))
+	# 	time.sleep(0.1)
+	# # ports.multi_input = [mido.open_input(i) for i in conf.midi_input_devices]
 	print_debug(f"{ports.multi_input=}",1)
 	
 	# connection_barrier.wait()
@@ -101,6 +99,7 @@ def close_ports(*ports):
 			print_debug(f"Closing {port.name=}...",1)
 			port.close()
 			print_debug(f"{port.name} closed: {port.closed}",1)
+	del ports
 	
 def stop_process_pool(executor):
 	for pid, process in executor._processes.items():
@@ -158,7 +157,7 @@ def main(*args)->None:
 
 	#print(f"New temp conf:{temp_conf}")
 
-	with concurrent.futures.ProcessPoolExecutor() as executor:
+	with concurrent.futures.ThreadPoolExecutor() as executor:
 		#p = executor.submit(load_config, (CONFIG_FILE,ports))
 		try:
 			f = executor.submit(check_time)
@@ -181,25 +180,54 @@ def main(*args)->None:
 
 	print_debug("Waiting for MIDI... Press Ctrl-C to abort...", 1)
 
-	for port, msg, in mido.ports.multi_receive(ports.multi_input, yield_ports=True, block=True):
-		match(port):
-			case [conf.midi_input_debug]:
-				print_debug(f"Debug port",1)
-				print_debug(f"{msg}",1)
-			case [conf.midi_input_daw]:
-				print_debug(f"DAW port",1)
-			case [conf.midi_input_hw]:
-				print_debug(f"HW port",1)
-		match(msg):
-			case mido.messages.messages.Message(note=mValue):
-				print_debug(f"{port.name}:note({mValue}:{msg}",1)
-			case mido.messages.messages.Message(type="sysex", data=_):
-				print_debug(f"{port.name}:sysex:{msg}",1)
-			case mido.messages.messages.Message(type="control_change"):
-				print_debug(f"{port.name}:cc:{msg}",1)
-			case other:
-				pass
-				#print(f"Other type...{other}")
+	# ports.multi_input.append(mido.open_input(i))
+	
+	# with mido.open_input(conf.midi_input_daw) as daw, \
+	# 	 mido.open_input(conf.midi_input_hw) as hw:
+				#mido.open_input(conf.midi_input_debug) as debug:
+
+		# for msg in daw:
+		# 	for msg in hw:
+		# 		print(msg)
+		# 	print(msg)
+		# for msg in daw:
+		# 	print(msg)
+
+		# for msg in debug:
+		# 	print(msg)
+
+	midi_input_list = []
+	#conf.midi_input_devices = ['Arturia KeyStep 32']
+	#print(f"asdfasdfasdf {conf.midi_input_hw}")
+	with ExitStack() as midi_stack:
+		for midi_input in conf.midi_input_devices:
+			print(f"{conf.midi_input_devices=}")
+		midi_input_list.append(midi_stack.enter_context(mido.open_input(midi_input)))
+		print(midi_input_list)
+		for port,msg in mido.ports.multi_receive(midi_input_list, yield_ports=True, block=True):
+			print(f"{port=}")
+			for msg in port:
+				print(f"{port=},{msg=}")
+			print("never gets here")
+	# #for port, msg, in mido.ports.multi_receive(ports.multi_input, yield_ports=True, block=True):
+	# 	match(port):
+	# 		case [conf.midi_input_debug]:
+	# 			print_debug(f"Debug port",1)
+	# 			print_debug(f"{msg}",1)
+	# 		case [conf.midi_input_daw]:
+	# 			print_debug(f"DAW port",1)
+	# 		case [conf.midi_input_hw]:
+	# 			print_debug(f"HW port",1)
+	# 	match(msg):
+	# 		case mido.messages.messages.Message(note=mValue):
+	# 			print_debug(f"{port.name}:note({mValue}:{msg}",1)
+	# 		case mido.messages.messages.Message(type="sysex", data=_):
+	# 			print_debug(f"{port.name}:sysex:{msg}",1)
+	# 		case mido.messages.messages.Message(type="control_change"):
+	# 			print_debug(f"{port.name}:cc:{msg}",1)
+	# 		case other:
+	# 			pass
+	# 			#print(f"Other type...{other}")
 	
 	#mcuconfigfile.create_empty_config(CONFIG_FILE,True)
 	pass
