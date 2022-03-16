@@ -3,6 +3,7 @@
 # new main file
 from contextlib import ExitStack
 from dataclasses import dataclass, field
+from multiprocessing import Value
 from sqlite3 import connect
 import sys
 import signal
@@ -24,6 +25,14 @@ PORT_TIMEOUT = 3.0
 
 connection_barrier = threading.Barrier(parties=2, timeout=5.0)
 
+def to_14bit(v:int)->tuple:
+    cc1 = int(bin(v>>7),2)
+    cc2 = int(bin(v&127),2)
+
+    return (cc1,cc2)
+
+def from_14bit(cc1,cc2)->int:
+    return (cc1<<7|cc2)
 
 @dataclass
 class IOPorts:
@@ -63,10 +72,10 @@ def load_config(filename,ports)->bool:
 	print_debug(f"{ports.output=}",1)
 	ports.output_virt = mido.open_output(conf.midi_output_daw)
 	print_debug(f"{ports.output_virt=}",1)
-	# for i in conf.midi_input_devices:
-	# 	time.sleep(0.1)
-	# 	ports.multi_input.append(mido.open_input(i))
-	# 	time.sleep(0.1)
+	for i in conf.midi_input_devices:
+		#time.sleep(0.1)
+		ports.multi_input.append(mido.open_input(i))
+		time.sleep(0.1)
 	# # ports.multi_input = [mido.open_input(i) for i in conf.midi_input_devices]
 	print_debug(f"{ports.multi_input=}",1)
 	
@@ -196,38 +205,69 @@ def main(*args)->None:
 		# for msg in debug:
 		# 	print(msg)
 
-	midi_input_list = []
-	#conf.midi_input_devices = ['Arturia KeyStep 32']
-	#print(f"asdfasdfasdf {conf.midi_input_hw}")
-	with ExitStack() as midi_stack:
-		for midi_input in conf.midi_input_devices:
-			print(f"{conf.midi_input_devices=}")
-		midi_input_list.append(midi_stack.enter_context(mido.open_input(midi_input)))
-		print(midi_input_list)
-		for port,msg in mido.ports.multi_receive(midi_input_list, yield_ports=True, block=True):
-			print(f"{port=}")
-			for msg in port:
-				print(f"{port=},{msg=}")
-			print("never gets here")
-	# #for port, msg, in mido.ports.multi_receive(ports.multi_input, yield_ports=True, block=True):
-	# 	match(port):
-	# 		case [conf.midi_input_debug]:
-	# 			print_debug(f"Debug port",1)
-	# 			print_debug(f"{msg}",1)
-	# 		case [conf.midi_input_daw]:
-	# 			print_debug(f"DAW port",1)
-	# 		case [conf.midi_input_hw]:
-	# 			print_debug(f"HW port",1)
-	# 	match(msg):
-	# 		case mido.messages.messages.Message(note=mValue):
-	# 			print_debug(f"{port.name}:note({mValue}:{msg}",1)
-	# 		case mido.messages.messages.Message(type="sysex", data=_):
-	# 			print_debug(f"{port.name}:sysex:{msg}",1)
-	# 		case mido.messages.messages.Message(type="control_change"):
-	# 			print_debug(f"{port.name}:cc:{msg}",1)
-	# 		case other:
-	# 			pass
-	# 			#print(f"Other type...{other}")
+	# midi_input_list = []
+	# #conf.midi_input_devices = ['Arturia KeyStep 32']
+	# #print(f"asdfasdfasdf {conf.midi_input_hw}")
+	# with ExitStack() as midi_stack:
+	# 	for midi_input in conf.midi_input_devices:
+	# 		print(f"{conf.midi_input_devices=}")
+	# 	midi_input_list.append(midi_stack.enter_context(mido.open_input(midi_input)))
+	# 	print(midi_input_list)
+	# 	for port,msg in mido.ports.multi_receive(midi_input_list, yield_ports=True, block=True):
+	# 		print(f"{port=}")
+	# 		for msg in port:
+	# 			print(f"{port=},{msg=}")
+	# 		print("never gets here")
+
+	cc1msg_return = mido.Message('control_change', control=12, channel=0, value=123)
+	cc2msg_return = mido.Message('control_change', control=44, channel=0, value=123)
+	pitchmsg_volume = mido.Message('pitchwheel', channel=0, pitch=8023)
+	cc1arrived = False
+	for port, msg, in mido.ports.multi_receive(ports.multi_input, yield_ports=True, block=True):
+		match(port):
+			case [conf.midi_input_debug]:
+				print_debug(f"Debug port",1)
+				print_debug(f"{msg}",1)
+			case [conf.midi_input_daw]:
+				print_debug(f"DAW port",1)
+			case [conf.midi_input_hw]:
+				print_debug(f"HW port",1)
+		match(msg):
+			case mido.messages.messages.Message(note=mValue):
+				print_debug(f"{port.name}:note({mValue}:{msg}",1)
+			case mido.messages.messages.Message(type="sysex", data=_):
+				print_debug(f"{port.name}:sysex:{msg}",1)
+			case mido.messages.messages.Message(type="control_change"):
+				print_debug(f"{port.name}:cc:{msg}",1)
+				if(msg.control==12 and port.name == conf.midi_input_daw):
+					cc1arrived = True
+					cc1msg_return.value = msg.value
+					print("True!")
+				if(cc1arrived and msg.control==44 and port.name == conf.midi_input_daw):
+					cc1arrived = False
+					cc2msg_return.value = msg.value
+					# print("True still!")
+					# conf.midi_outport_hw.send(cc1msg_return)
+					# conf.midi_outport_hw.send(cc2msg_return)
+					pitchmsg_volume.pitch = from_14bit(cc1msg_return.value, cc2msg_return.value)-8192
+					# print(pitchmsg_volume.pitch)
+					ports.output.send(pitchmsg_volume)
+
+			case mido.messages.messages.Message(type="pitchwheel"):
+				#print_debug(f"{port.name}:cc:{msg}",1)
+				# print_debug(f"{port.name}:pw:{msg}",1)
+				cc1msg = mido.Message('control_change', control=12, channel=0, value=123)
+				cc2msg = mido.Message('control_change', control=44, channel=0, value=123)
+				cc1msg.value, cc2msg.value = to_14bit(msg.pitch+8192)
+				
+				ports.output_virt.send(cc2msg)
+				ports.output_virt.send(cc1msg)
+				
+
+				
+			case other:
+				pass
+				print(f"Other type...{other}")
 	
 	#mcuconfigfile.create_empty_config(CONFIG_FILE,True)
 	pass
