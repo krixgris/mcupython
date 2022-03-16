@@ -26,13 +26,17 @@ PORT_TIMEOUT = 3.0
 connection_barrier = threading.Barrier(parties=2, timeout=5.0)
 
 def to_14bit(v:int)->tuple:
-    cc1 = int(bin(v>>7),2)
-    cc2 = int(bin(v&127),2)
+	if(v>16383):
+		v = 16383
+	elif(v<=3):
+		v = 0
+	cc1 = int(bin(v>>7),2)
+	cc2 = int(bin(v&127),2)
 
-    return (cc1,cc2)
+	return (cc1,cc2)
 
 def from_14bit(cc1,cc2)->int:
-    return (cc1<<7|cc2)
+	return (cc1<<7|cc2)
 
 @dataclass
 class IOPorts:
@@ -223,6 +227,7 @@ def main(*args)->None:
 	cc2msg_return = mido.Message('control_change', control=44, channel=0, value=123)
 	pitchmsg_volume = mido.Message('pitchwheel', channel=0, pitch=8023)
 	cc1arrived = False
+	cc1val = 0
 	for port, msg, in mido.ports.multi_receive(ports.multi_input, yield_ports=True, block=True):
 		match(port):
 			case [conf.midi_input_debug]:
@@ -240,17 +245,12 @@ def main(*args)->None:
 			case mido.messages.messages.Message(type="control_change"):
 				print_debug(f"{port.name}:cc:{msg}",1)
 				if(msg.control==12 and port.name == conf.midi_input_daw):
-					cc1arrived = True
-					cc1msg_return.value = msg.value
-					print("True!")
-				if(cc1arrived and msg.control==44 and port.name == conf.midi_input_daw):
-					cc1arrived = False
+					#cc1arrived = True
+					cc1val = msg.value
+					#print("True!")
+				if(msg.control==44 and port.name == conf.midi_input_daw):
 					cc2msg_return.value = msg.value
-					# print("True still!")
-					# conf.midi_outport_hw.send(cc1msg_return)
-					# conf.midi_outport_hw.send(cc2msg_return)
-					pitchmsg_volume.pitch = from_14bit(cc1msg_return.value, cc2msg_return.value)-8192
-					# print(pitchmsg_volume.pitch)
+					pitchmsg_volume.pitch = from_14bit(cc1val, cc2msg_return.value)-8192
 					ports.output.send(pitchmsg_volume)
 
 			case mido.messages.messages.Message(type="pitchwheel"):
@@ -258,7 +258,8 @@ def main(*args)->None:
 				# print_debug(f"{port.name}:pw:{msg}",1)
 				cc1msg = mido.Message('control_change', control=12, channel=0, value=123)
 				cc2msg = mido.Message('control_change', control=44, channel=0, value=123)
-				cc1msg.value, cc2msg.value = to_14bit(msg.pitch+8192)
+				print(msg.pitch+8192+3)
+				cc1msg.value, cc2msg.value = to_14bit(msg.pitch+8192+3)
 				
 				ports.output_virt.send(cc2msg)
 				ports.output_virt.send(cc1msg)
